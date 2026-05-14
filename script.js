@@ -378,11 +378,12 @@ function renderHistoryTable() {
   var html = '<table class="history-table"><thead><tr>' +
     '<th style="width:40px;text-align:center;"></th>' +
     '<th>이름</th><th>파트</th><th>직무유형</th>' +
-    '<th>종합점수</th><th>등급</th><th>추천연봉</th><th>평가일</th><th></th>' +
+    '<th>종합점수</th><th>등급</th><th>추천연봉</th><th>확정연봉</th><th>평가일</th><th></th>' +
     '</tr></thead><tbody>';
   evalHistory.forEach(function (h) {
     var isSel = selectedForCompare.indexOf(h.id) >= 0;
     var jtStyle = JT_TAG_STYLE[h.jobType] || '';
+    var confirmedVal = h.confirmedSalary || '';
     html +=
       '<tr id="row-' + h.id + '" class="' + (isSel ? 'sel-row' : '') + '">' +
       '<td style="text-align:center;"><input type="checkbox" class="h-chk" id="chk-' + h.id + '" ' + (isSel ? 'checked' : '') + ' onchange="toggleCompareSelect(' + h.id + ')"></td>' +
@@ -392,6 +393,7 @@ function renderHistoryTable() {
       '<td><span class="h-score" style="color:' + (JT_COLORS[h.jobType] || '#0d9488') + '">' + h.total + '점</span></td>' +
       '<td><span class="h-grade-badge" style="' + GRADE_STYLE[h.grade] + '">' + h.grade + '등급</span></td>' +
       '<td>' + h.recSalary.toLocaleString() + '만원</td>' +
+      '<td><div class="confirmed-salary-wrap"><input type="number" class="confirmed-salary-input" id="cs-' + h.id + '" value="' + confirmedVal + '" placeholder="-" step="100" onchange="saveConfirmedSalary(' + h.id + ', this.value)"><span class="confirmed-salary-unit">만원</span></div></td>' +
       '<td style="color:#94a3b8;font-size:12px;">' + h.date + '</td>' +
       '<td><button class="h-del-btn" onclick="deleteHistoryItem(' + h.id + ')">삭제</button></td>' +
       '</tr>';
@@ -408,6 +410,31 @@ function updateHistoryBadge() {
   } else {
     badge.classList.remove('show');
   }
+}
+
+/* ════════════════════════════════════════
+   확정 연봉 자동 저장 — Firebase
+════════════════════════════════════════ */
+var salaryAutoSaveTimer = null;
+function saveConfirmedSalary(id, value) {
+  clearTimeout(salaryAutoSaveTimer);
+  salaryAutoSaveTimer = setTimeout(function () {
+    var salaryVal = parseInt(value) || 0;
+    var updateData = { confirmedSalary: salaryVal > 0 ? salaryVal : null };
+    db.collection('hire_history')
+      .doc(String(id))
+      .update(updateData)
+      .then(function () {
+        var inputEl = document.getElementById('cs-' + id);
+        if (inputEl) {
+          inputEl.style.borderColor = '#0d9488';
+          setTimeout(function () { inputEl.style.borderColor = ''; }, 1200);
+        }
+      })
+      .catch(function (err) {
+        console.error('확정 연봉 저장 실패:', err);
+      });
+  }, 500);
 }
 
 /* ════════════════════════════════════════
@@ -553,10 +580,11 @@ function repeatTd(n, content) {
 ════════════════════════════════════════ */
 function exportCSV() {
   if (evalHistory.length === 0) { alert('저장된 이력이 없습니다.'); return; }
-  var headers = ['이름', '파트', '직무유형', '종합점수', '등급', '추천연봉(만원)', '연봉범위', '학력', '경력', '업무전문성', '이력관련성', '경력지속성', '평가일'];
+  var headers = ['이름', '파트', '직무유형', '종합점수', '등급', '추천연봉(만원)', '확정연봉(만원)', '연봉범위', '학력', '경력', '업무전문성', '이력관련성', '경력지속성', '평가일'];
   var rows = evalHistory.map(function (h) {
     return [
       h.name, h.part, h.jobType, h.total, h.grade, h.recSalary,
+      h.confirmedSalary || '',
       h.band.lo + '~' + h.band.hi,
       EDU_LABELS[h.scores.edu] || '',
       h.scores.exp,
