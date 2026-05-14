@@ -173,7 +173,17 @@ body { font-family: 'Noto Sans KR', sans-serif; background: #f0f2f5; color: #2d3
 .eval-summary { background: #f0fdfa; border: 1px solid #99e6d9; border-radius: 10px; padding: 16px 20px; margin-bottom: 16px; }
 .eval-summary-title { font-size: 13px; font-weight: 600; color: #0b7a70; margin-bottom: 8px; }
 .eval-summary-text { font-size: 13px; color: #2d6e60; line-height: 1.8; }
-.result-actions { display: flex; align-items: center; gap: 10px; }
+.result-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.btn-recalc { padding: 10px 20px; background: linear-gradient(135deg, #0d9488, #0b8070); color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer; transition: all 0.15s; }
+.btn-recalc:hover { box-shadow: 0 4px 12px rgba(13,148,136,0.3); background: linear-gradient(135deg, #0b8070, #097a6e); }
+.btn-back-eval { padding: 10px 20px; background: #fff; border: 1.5px solid #0d9488; border-radius: 8px; font-size: 14px; font-weight: 500; color: #0d9488; font-family: inherit; cursor: pointer; transition: all 0.15s; }
+.btn-back-eval:hover { background: #f0fdfa; }
+
+/* 평가 입력 하단 버튼 영역 */
+.eval-actions { display: flex; gap: 12px; align-items: center; }
+.eval-actions .btn-calc { flex: 1; }
+.btn-clear { padding: 10px 24px; background: #fff; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 14px; color: #94a3b8; font-weight: 500; font-family: inherit; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+.btn-clear:hover { background: #fef2f2; border-color: #fecaca; color: #ef4444; }
 
 /* ════════════════════════════════════════
    채용이력

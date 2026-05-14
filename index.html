@@ -200,7 +200,10 @@
             </div>
           </div>
 
-          <button class="btn-calc" onclick="calculate()">점수 계산 및 연봉 산출 →</button>
+          <div class="eval-actions">
+            <button class="btn-calc" onclick="calculate()">점수 계산 및 연봉 산출 →</button>
+            <button class="btn-clear" onclick="resetEval()" type="button">🗑️ 초기화</button>
+          </div>
         </div>
       </div>
     </div>
@@ -250,7 +253,9 @@
 
       <div class="result-actions">
         <button class="btn-save-history" onclick="saveToHistory()">📋 이력 저장</button>
-        <button class="btn-reset" onclick="resetEval()">← 다시 입력</button>
+        <button class="btn-recalc" onclick="recalculate()" title="파라미터 변경 후 동일 입력으로 재계산">🔄 재계산</button>
+        <button class="btn-back-eval" onclick="showPage('eval')" title="입력값 유지한 채 평가 입력으로 돌아가기">← 평가 입력으로</button>
+        <button class="btn-reset" onclick="resetEval()">🗑️ 초기화 후 새 입력</button>
         <span class="save-history-toast" id="save-history-toast"></span>
       </div>
     </div>
