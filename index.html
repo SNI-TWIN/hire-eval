@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>계약직 채용 평가 시스템</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="header">
+  <div class="header-logo">인사관리 포털</div>
+  <div class="header-sub">계약직 채용 평가 시스템</div>
+  <div class="header-right">관리자</div>
+</div>
+
+<div class="layout">
+
+  <!-- ── 사이드바 ── -->
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">평가</div>
+      <div class="nav-item active" onclick="showPage('eval')" id="nav-eval">
+        <span class="nav-icon">📝</span>평가 입력
+      </div>
+      <div class="nav-item" onclick="showPage('result')" id="nav-result">
+        <span class="nav-icon">📊</span>결과 확인
+      </div>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">이력 관리</div>
+      <div class="nav-item" onclick="showPage('history')" id="nav-history">
+        <span class="nav-icon">📋</span>채용 이력
+        <span class="nav-badge" id="history-badge"></span>
+      </div>
+      <div class="nav-item" onclick="showPage('compare')" id="nav-compare">
+        <span class="nav-icon">⚖️</span>비교하기
+      </div>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">설정</div>
+      <div class="nav-item" onclick="showPage('param')" id="nav-param">
+        <span class="nav-icon">⚙️</span>파라미터 설정
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 메인 ── -->
+  <div class="main">
+
+    <!-- ════════════ 평가 입력 ════════════ -->
+    <div class="page active" id="page-eval">
+      <div class="page-title">계약직 채용 평가 입력</div>
+      <div class="page-desc">직무유형을 선택하면 해당 직무의 파라미터가 자동 적용됩니다. 모든 항목 입력 후 점수를 산출하세요.</div>
+
+      <!-- 직무유형 -->
+      <div class="card">
+        <div class="card-title">① 직무유형 선택 <span class="badge badge-warn">필수</span></div>
+        <div class="jobtype-grid">
+          <div class="jobtype-card" onclick="selectJobType('현장주간',this)" id="jt-현장주간">
+            <div class="jobtype-icon">🏗️</div>
+            <div class="jobtype-name">현장주간</div>
+            <div class="jobtype-desc">현장 근무 · 주간 근무</div>
+          </div>
+          <div class="jobtype-card" onclick="selectJobType('현장교대',this)" id="jt-현장교대">
+            <div class="jobtype-icon">🔄</div>
+            <div class="jobtype-name">현장교대</div>
+            <div class="jobtype-desc">현장 근무 · 교대 근무</div>
+          </div>
+          <div class="jobtype-card" onclick="selectJobType('기획주간',this)" id="jt-기획주간">
+            <div class="jobtype-icon">📋</div>
+            <div class="jobtype-name">기획주간</div>
+            <div class="jobtype-desc">사무 기획 · 주간 근무</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 기본정보 -->
+      <div class="card">
+        <div class="card-title">② 지원자 기본 정보</div>
+        <div class="info-grid">
+          <div>
+            <div class="info-label">지원자 이름</div>
+            <input type="text" class="info-input" id="input-name" placeholder="이름을 입력하세요">
+          </div>
+          <div>
+            <div class="info-label">소속 파트 / 부서</div>
+            <input type="text" class="info-input" id="input-part" placeholder="배치 예정 파트 또는 부서명">
+          </div>
+        </div>
+      </div>
+
+      <div id="validation-msg" class="validation-msg"></div>
+
+      <!-- 평가항목 -->
+      <div class="card-section">
+        <div class="sect-header">③ 평가 항목 입력</div>
+        <div class="sect-body">
+
+          <div class="criteria-grid">
+            <!-- 학력 -->
+            <div class="criteria-card">
+              <div class="criteria-label">학력 <span class="criteria-weight" id="w-label-edu"></span></div>
+              <div class="criteria-desc">최종 학력을 선택하세요</div>
+              <div class="radio-group">
+                <label class="radio-option" onclick="selectRadio('edu',1,this)">
+                  <input type="radio" name="edu"><div class="radio-dot"></div>
+                  <span class="radio-text">고졸 이하</span><span class="radio-score">25점</span>
+                </label>
+                <label class="radio-option" onclick="selectRadio('edu',2,this)">
+                  <input type="radio" name="edu"><div class="radio-dot"></div>
+                  <span class="radio-text">전문대 졸</span><span class="radio-score">50점</span>
+                </label>
+                <label class="radio-option" onclick="selectRadio('edu',3,this)">
+                  <input type="radio" name="edu"><div class="radio-dot"></div>
+                  <span class="radio-text">대학교 졸</span><span class="radio-score">75점</span>
+                </label>
+                <label class="radio-option" onclick="selectRadio('edu',4,this)">
+                  <input type="radio" name="edu"><div class="radio-dot"></div>
+                  <span class="radio-text">대학원 이상</span><span class="radio-score">100점</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- 경력 -->
+            <div class="criteria-card">
+              <div class="criteria-label">총 경력 연수 <span class="criteria-weight" id="w-label-exp"></span></div>
+              <div class="criteria-desc">전체 직장 경력 기간을 입력하세요</div>
+              <div class="exp-input-wrap">
+                <input type="number" class="exp-input" id="exp-years" min="0" max="40" placeholder="0" oninput="updateExpTag()">
+                <span class="exp-unit">년</span>
+                <input type="number" class="exp-input" id="exp-months" min="0" max="11" placeholder="0" oninput="updateExpTag()">
+                <span class="exp-unit">개월</span>
+              </div>
+              <div id="exp-tag-wrap"></div>
+              <div class="exp-guide">예) 3년 6개월 → 각각 입력</div>
+            </div>
+
+            <!-- 업무전문성 -->
+            <div class="criteria-card">
+              <div class="criteria-label">업무 전문성 <span class="criteria-weight" id="w-label-skill"></span></div>
+              <div class="criteria-desc">지원 업무 대비 전문 역량 수준</div>
+              <div class="radio-group">
+                <label class="radio-option" onclick="selectRadio('skill',1,this)">
+                  <input type="radio" name="skill"><div class="radio-dot"></div>
+                  <span class="radio-text">기초 — 기본 지식 보유, 지도 필요</span><span class="radio-score">33점</span>
+                </label>
+                <label class="radio-option" onclick="selectRadio('skill',2,this)">
+                  <input type="radio" name="skill"><div class="radio-dot"></div>
+                  <span class="radio-text">중급 — 독립 업무 수행 가능</span><span class="radio-score">67점</span>
+                </label>
+                <label class="radio-option" onclick="selectRadio('skill',3,this)">
+                  <input type="radio" name="skill"><div class="radio-dot"></div>
+                  <span class="radio-text">전문가 — 심화 역량 / 타인 지도 가능</span><span class="radio-score">100점</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- 과거이력관련성 -->
+            <div class="criteria-card">
+              <div class="criteria-label">과거 이력 관련성 <span class="criteria-weight" id="w-label-rel"></span></div>
+              <div class="criteria-desc">이전 직무와 지원 직무의 연관도</div>
+              <div class="radio-group">
+                <label class="radio-option" onclick="selectRadio('rel',1,this)">
+                  <input type="radio" name="rel"><div class="radio-dot"></div>
+                  <span class="radio-text">무관 — 이전 경력과 직무 관련 없음</span><span class="radio-score">33점</span>
+                </label>
+                <label class="radio-option" onclick="selectRadio('rel',2,this)">
+                  <input type="radio" name="rel"><div class="radio-dot"></div>
+                  <span class="radio-text">부분 관련 — 일부 경험 활용 가능</span><span class="radio-score">67점</span>
+                </label>
+                <label class="radio-option" onclick="selectRadio('rel',3,this)">
+                  <input type="radio" name="rel"><div class="radio-dot"></div>
+                  <span class="radio-text">직접 관련 — 동일/유사 직무 경험</span><span class="radio-score">100점</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- 경력지속성 -->
+            <div class="criteria-card full">
+              <div class="criteria-label">경력 지속성 <span class="criteria-weight" id="w-label-cont"></span></div>
+              <div class="criteria-desc">최근 5년간 한 직장에서의 최장 근속 기간 기준</div>
+              <div class="radio-group radio-row">
+                <label class="radio-option" onclick="selectRadio('cont',1,this)">
+                  <input type="radio" name="cont"><div class="radio-dot"></div>
+                  <span class="radio-text">잦은 이직 — 평균 1년 미만</span><span class="radio-score">33점</span>
+                </label>
+                <label class="radio-option" onclick="selectRadio('cont',2,this)">
+                  <input type="radio" name="cont"><div class="radio-dot"></div>
+                  <span class="radio-text">보통 — 평균 1~2년</span><span class="radio-score">67점</span>
+                </label>
+                <label class="radio-option" onclick="selectRadio('cont',3,this)">
+                  <input type="radio" name="cont"><div class="radio-dot"></div>
+                  <span class="radio-text">장기 근속 — 2년 이상</span><span class="radio-score">100점</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <button class="btn-calc" onclick="calculate()">점수 계산 및 연봉 산출 →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════ 결과 확인 ════════════ -->
+    <div class="page" id="page-result">
+      <div class="page-title">평가 결과</div>
+      <div class="page-desc">입력한 정보를 기반으로 산출된 종합 점수와 적정 연봉 범위입니다.</div>
+
+      <div class="res-info-bar" id="res-info-bar"></div>
+
+      <div class="result-top">
+        <div class="score-card">
+          <div class="score-label">종합 평가 점수</div>
+          <div class="score-circle-wrap">
+            <svg viewBox="0 0 160 160">
+              <circle cx="80" cy="80" r="68" fill="none" stroke="#f1f5f9" stroke-width="12"/>
+              <circle id="score-arc" cx="80" cy="80" r="68" fill="none" stroke="#0d9488" stroke-width="12"
+                stroke-linecap="round" stroke-dasharray="427" stroke-dashoffset="427"
+                transform="rotate(-90 80 80)" style="transition:stroke-dashoffset 1s cubic-bezier(0.4,0,0.2,1)"/>
+            </svg>
+            <div class="score-num">
+              <div class="num" id="res-score">—</div>
+              <div class="out">/ 100</div>
+            </div>
+          </div>
+          <div class="score-grade" id="res-grade">—</div>
+        </div>
+
+        <div class="salary-card">
+          <div class="salary-title">적정 연봉 범위</div>
+          <div class="salary-band" id="res-salary-band">—</div>
+          <div class="salary-rec">추천 연봉: <span id="res-salary-rec">—</span></div>
+          <div id="band-bars-wrap"></div>
+        </div>
+      </div>
+
+      <div class="breakdown-card">
+        <div class="breakdown-title">항목별 점수 상세</div>
+        <div id="factor-breakdown"></div>
+      </div>
+
+      <div class="eval-summary">
+        <div class="eval-summary-title">✦ 종합 의견</div>
+        <div class="eval-summary-text" id="eval-summary-text">—</div>
+      </div>
+
+      <div class="result-actions">
+        <button class="btn-save-history" onclick="saveToHistory()">📋 이력 저장</button>
+        <button class="btn-reset" onclick="resetEval()">← 다시 입력</button>
+        <span class="save-history-toast" id="save-history-toast"></span>
+      </div>
+    </div>
+
+    <!-- ════════════ 채용 이력 ════════════ -->
+    <div class="page" id="page-history">
+      <div class="page-title">채용 이력</div>
+      <div class="page-desc">저장된 지원자 평가 이력입니다. 체크박스로 2~4명 선택 후 비교하기가 가능합니다.</div>
+
+      <div class="history-toolbar">
+        <div class="history-hint" id="compare-hint">비교할 지원자를 2명 이상 선택하세요 (최대 4명)</div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-compare" id="btn-compare" onclick="goToCompare()" disabled>⚖️ 비교하기</button>
+          <button class="btn-export" onclick="exportCSV()">📥 엑셀 다운로드</button>
+        </div>
+      </div>
+
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div id="history-table-wrap"></div>
+      </div>
+    </div>
+
+    <!-- ════════════ 비교하기 ════════════ -->
+    <div class="page" id="page-compare">
+      <div class="page-title">지원자 비교</div>
+      <div class="page-desc">선택한 지원자들의 평가 결과를 항목별로 비교합니다.</div>
+      <div id="compare-content"></div>
+    </div>
+
+    <!-- ════════════ 파라미터 설정 ════════════ -->
+    <div class="page" id="page-param">
+      <div class="page-title">파라미터 설정</div>
+      <div class="page-desc">직무유형별로 가중치와 연봉 구간을 독립적으로 설정합니다. 저장 후 해당 직무유형 평가에 즉시 반영됩니다.</div>
+
+      <div class="param-type-tabs">
+        <div class="param-type-tab active" onclick="switchParamTab('현장주간',this)">🏗️ 현장주간</div>
+        <div class="param-type-tab" onclick="switchParamTab('현장교대',this)">🔄 현장교대</div>
+        <div class="param-type-tab" onclick="switchParamTab('기획주간',this)">📋 기획주간</div>
+      </div>
+
+      <div id="param-panel-현장주간" class="param-panel active"></div>
+      <div id="param-panel-현장교대" class="param-panel"></div>
+      <div id="param-panel-기획주간" class="param-panel"></div>
+
+      <div class="param-actions">
+        <button class="btn-save" onclick="saveParams()">설정 저장</button>
+        <span class="save-toast" id="save-toast"></span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
