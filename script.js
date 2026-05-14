@@ -77,6 +77,8 @@ var CONT_LABELS = { 1: '잦은 이직', 2: '보통', 3: '장기 근속' };
    상태
 ════════════════════════════════════════ */
 var params = JSON.parse(JSON.stringify(DEFAULT_PARAMS));
+var cloudParams = JSON.parse(JSON.stringify(DEFAULT_PARAMS)); // 클라우드 원본 보관
+var testMode = false;
 var selectedJobType = null;
 var scores = { edu: null, exp: null, skill: null, rel: null, cont: null };
 var expYearsVal = 0;
@@ -89,12 +91,38 @@ var selectedForCompare = [];
    초기화
 ════════════════════════════════════════ */
 function init() {
-  loadParamsFromStorage();       // 파라미터는 로컬에서
-  renderAllParamPanels();
-  updateWeightLabels();
+  // 1) Firebase에서 클라우드 파라미터 로드
+  db.collection('settings').doc('params').get()
+    .then(function (doc) {
+      if (doc.exists) {
+        var saved = doc.data();
+        ['현장주간', '현장교대', '기획주간'].forEach(function (type) {
+          if (saved[type]) {
+            if (saved[type].weights) {
+              cloudParams[type].weights = saved[type].weights;
+              params[type].weights = JSON.parse(JSON.stringify(saved[type].weights));
+            }
+            if (saved[type].bands) {
+              cloudParams[type].bands = saved[type].bands;
+              params[type].bands = JSON.parse(JSON.stringify(saved[type].bands));
+            }
+          }
+        });
+      }
+      renderAllParamPanels();
+      updateWeightLabels();
+      applyParamMode();
+    })
+    .catch(function (err) {
+      console.error('클라우드 파라미터 로드 실패:', err);
+      renderAllParamPanels();
+      updateWeightLabels();
+      applyParamMode();
+    });
+
   updateHistoryBadge();
 
-  // Firebase 실시간 리스너 — 누가 저장/삭제하면 양쪽 화면 자동 반영
+  // 2) Firebase 실시간 리스너 — 채용 이력
   db.collection('hire_history')
     .orderBy('id', 'desc')
     .onSnapshot(function (snapshot) {
@@ -712,9 +740,9 @@ function onWeightChange(type) {
 }
 
 /* ════════════════════════════════════════
-   파라미터 — 저장 (로컬스토리지)
+   파라미터 — 로컬 테스트 저장
 ════════════════════════════════════════ */
-function saveParams() {
+function collectParamsFromUI() {
   ['현장주간', '현장교대', '기획주간'].forEach(function (type) {
     ['exp', 'skill', 'rel', 'edu', 'cont'].forEach(function (k) {
       var el = document.getElementById('ws-' + type + '-' + k);
@@ -727,12 +755,93 @@ function saveParams() {
       if (!isNaN(hi)) b.hi = hi;
     });
   });
-  saveParamsToStorage();
+}
+
+function saveParams() {
+  if (!testMode) return;
+  collectParamsFromUI();
   updateWeightLabels();
+  showToast('✓ 테스트 값이 로컬에 적용되었습니다', '#0b7a70');
+}
+
+/* ════════════════════════════════════════
+   파라미터 — 클라우드 저장
+════════════════════════════════════════ */
+function saveParamsToCloud() {
+  if (!testMode) return;
+  collectParamsFromUI();
+  if (!confirm('현재 테스트 파라미터를 클라우드에 반영하시겠습니까?\n모든 사용자에게 적용됩니다.')) return;
+
+  db.collection('settings').doc('params').set(JSON.parse(JSON.stringify(params)))
+    .then(function () {
+      cloudParams = JSON.parse(JSON.stringify(params));
+      showToast('✓ 클라우드에 저장 완료! 모든 사용자에게 반영됩니다.', '#2563eb');
+    })
+    .catch(function (err) {
+      showToast('❌ 클라우드 저장 실패: ' + err.message, '#e53e3e');
+    });
+}
+
+/* ════════════════════════════════════════
+   파라미터 — 클라우드 값으로 되돌리기
+════════════════════════════════════════ */
+function resetTestParams() {
+  params = JSON.parse(JSON.stringify(cloudParams));
+  renderAllParamPanels();
+  updateWeightLabels();
+  showToast('↩️ 클라우드 값으로 되돌렸습니다', '#64748b');
+}
+
+/* ════════════════════════════════════════
+   테스트 모드 전환
+════════════════════════════════════════ */
+function toggleTestMode(isOn) {
+  testMode = isOn;
+  if (!isOn) {
+    // 운영 모드로 복귀 — 클라우드 값 복원
+    params = JSON.parse(JSON.stringify(cloudParams));
+    renderAllParamPanels();
+    updateWeightLabels();
+  }
+  applyParamMode();
+}
+
+function applyParamMode() {
+  var bar = document.getElementById('param-mode-bar');
+  var info = document.getElementById('param-mode-info');
+  var pageParam = document.getElementById('page-param');
+  var btnLocal = document.getElementById('btn-save-local');
+  var btnCloud = document.getElementById('btn-save-cloud');
+  var btnReset = document.getElementById('btn-reset-test');
+
+  if (testMode) {
+    bar.classList.add('test-active');
+    info.innerHTML = '<span class="param-mode-icon">🧪</span>' +
+      '<span class="param-mode-text"><strong>테스트 모드</strong> — 로컬에서 자유롭게 파라미터를 수정하고, 마음에 들면 클라우드에 반영하세요</span>';
+    pageParam.classList.remove('param-readonly');
+    btnLocal.style.display = '';
+    btnCloud.style.display = '';
+    btnReset.style.display = '';
+  } else {
+    bar.classList.remove('test-active');
+    info.innerHTML = '<span class="param-mode-icon">☁️</span>' +
+      '<span class="param-mode-text"><strong>운영 모드</strong> — 클라우드에 저장된 공용 파라미터를 사용 중 (읽기 전용)</span>';
+    pageParam.classList.add('param-readonly');
+    btnLocal.style.display = 'none';
+    btnCloud.style.display = 'none';
+    btnReset.style.display = 'none';
+  }
+}
+
+/* ════════════════════════════════════════
+   토스트 표시 헬퍼
+════════════════════════════════════════ */
+function showToast(text, color) {
   var toast = document.getElementById('save-toast');
-  toast.textContent = '✓ 저장되었습니다';
+  toast.textContent = text;
+  toast.style.color = color || '#0b7a70';
   toast.style.display = 'inline';
-  setTimeout(function () { toast.style.display = 'none'; }, 2500);
+  setTimeout(function () { toast.style.display = 'none'; }, 3000);
 }
 
 /* ════════════════════════════════════════
@@ -750,28 +859,6 @@ function updateWeightLabels() {
   setLabel('w-label-skill', w.skill);
   setLabel('w-label-rel', w.rel);
   setLabel('w-label-cont', w.cont);
-}
-
-/* ════════════════════════════════════════
-   로컬스토리지 — 파라미터만
-════════════════════════════════════════ */
-function saveParamsToStorage() {
-  try { localStorage.setItem('hire_eval_params', JSON.stringify(params)); } catch (e) { }
-}
-
-function loadParamsFromStorage() {
-  try {
-    var p = localStorage.getItem('hire_eval_params');
-    if (p) {
-      var saved = JSON.parse(p);
-      ['현장주간', '현장교대', '기획주간'].forEach(function (type) {
-        if (saved[type]) {
-          if (saved[type].weights) params[type].weights = saved[type].weights;
-          if (saved[type].bands) params[type].bands = saved[type].bands;
-        }
-      });
-    }
-  } catch (e) { }
 }
 
 /* ════════════════════════════════════════

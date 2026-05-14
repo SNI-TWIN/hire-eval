@@ -1425,6 +1425,134 @@ body {
 }
 
 /* ════════════════════════════════════════
+   테스트 모드
+════════════════════════════════════════ */
+.param-mode-bar {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   padding: 14px 20px;
+   border-radius: 10px;
+   margin-bottom: 16px;
+   border: 1.5px solid #e2e8f0;
+   background: #f8fafc;
+   transition: all 0.3s;
+}
+
+.param-mode-bar.test-active {
+   background: #fffbeb;
+   border-color: #fbbf24;
+}
+
+.param-mode-info {
+   display: flex;
+   align-items: center;
+   gap: 10px;
+}
+
+.param-mode-icon {
+   font-size: 20px;
+}
+
+.param-mode-text {
+   font-size: 13px;
+   color: #374151;
+}
+
+/* 토글 스위치 */
+.toggle-switch {
+   display: flex;
+   align-items: center;
+   gap: 10px;
+   cursor: pointer;
+   user-select: none;
+}
+
+.toggle-switch input {
+   display: none;
+}
+
+.toggle-slider {
+   width: 44px;
+   height: 24px;
+   background: #cbd5e0;
+   border-radius: 12px;
+   position: relative;
+   transition: background 0.25s;
+   flex-shrink: 0;
+}
+
+.toggle-slider::after {
+   content: '';
+   width: 18px;
+   height: 18px;
+   background: #fff;
+   border-radius: 50%;
+   position: absolute;
+   top: 3px;
+   left: 3px;
+   transition: transform 0.25s;
+   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.toggle-switch input:checked+.toggle-slider {
+   background: #f59e0b;
+}
+
+.toggle-switch input:checked+.toggle-slider::after {
+   transform: translateX(20px);
+}
+
+.toggle-label {
+   font-size: 13px;
+   font-weight: 500;
+   color: #64748b;
+   white-space: nowrap;
+}
+
+/* 클라우드 저장 버튼 */
+.btn-save-cloud {
+   padding: 12px 28px;
+   background: linear-gradient(135deg, #3b82f6, #2563eb);
+   color: #fff;
+   border: none;
+   border-radius: 8px;
+   font-size: 14px;
+   font-weight: 600;
+   font-family: inherit;
+   cursor: pointer;
+   transition: all 0.15s;
+}
+
+.btn-save-cloud:hover {
+   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+/* 되돌리기 버튼 */
+.btn-reset-test {
+   padding: 12px 24px;
+   background: #fff;
+   border: 1.5px solid #e2e8f0;
+   border-radius: 8px;
+   font-size: 14px;
+   color: #64748b;
+   font-family: inherit;
+   cursor: pointer;
+   transition: all 0.15s;
+}
+
+.btn-reset-test:hover {
+   background: #f8fafc;
+   border-color: #94a3b8;
+}
+
+/* 읽기 전용 오버레이 */
+.param-readonly .param-panel {
+   pointer-events: none;
+   opacity: 0.7;
+}
+
+/* ════════════════════════════════════════
    스크롤바
 ════════════════════════════════════════ */
 ::-webkit-scrollbar {
