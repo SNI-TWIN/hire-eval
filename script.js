@@ -342,6 +342,31 @@ function deleteHistoryItem(id) {
 }
 
 /* ════════════════════════════════════════
+   이력 전체 삭제 — Firebase
+════════════════════════════════════════ */
+function clearAllHistory() {
+  if (evalHistory.length === 0) {
+    alert('삭제할 이력이 없습니다.');
+    return;
+  }
+  if (!confirm('모든 평가 이력(' + evalHistory.length + '건)을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) return;
+
+  var batch = db.batch();
+  evalHistory.forEach(function (h) {
+    var docRef = db.collection('hire_history').doc(String(h.id));
+    batch.delete(docRef);
+  });
+  batch.commit()
+    .then(function () {
+      selectedForCompare = [];
+      updateCompareButton();
+    })
+    .catch(function (err) {
+      alert('전체 삭제 실패: ' + err.message);
+    });
+}
+
+/* ════════════════════════════════════════
    이력 테이블 렌더링
 ════════════════════════════════════════ */
 function renderHistoryTable() {
