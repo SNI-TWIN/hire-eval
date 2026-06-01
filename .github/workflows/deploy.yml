@@ -26,6 +26,7 @@ jobs:
           node-version: 22
       - run: npm install
       - run: npm run build
+      - run: touch dist/.nojekyll
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
         with:
