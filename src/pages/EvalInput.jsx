@@ -1,5 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Building2, Timer, Briefcase } from 'lucide-react'
+import { db } from '../firebase'
+import { collection, onSnapshot } from 'firebase/firestore'
+import { useAuth } from '../context/AuthContext'
 import { useParams } from '../context/ParamsContext'
 import { calcCurrentCareer, totalCareerYears, getCareerLevel } from '../utils/career'
 import { calcGrade, calcRecommendedSalary } from '../utils/salary'
@@ -16,9 +19,21 @@ const CERT_SUB_INIT = { type1: false, type2: false, extra3: false, extra4: false
 
 export default function EvalInput() {
   const { params } = useParams()
+  const { isAdmin, part: myPart }     = useAuth()
+  const [partList, setPartList]       = useState([])
   const [jobType, setJobType]         = useState(null)
   const [name, setName]               = useState('')
-  const [part, setPart]               = useState('')
+  const [part, setPart]               = useState(isAdmin ? '' : (myPart || ''))
+
+  // 관리자는 파트 목록에서 선택, 파트장은 본인 파트 고정
+  useEffect(() => {
+    if (!isAdmin) return
+    return onSnapshot(collection(db, 'parts'), s => {
+      const rows = s.docs.map(d => ({ id: d.id, ...d.data() }))
+      rows.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+      setPartList(rows)
+    })
+  }, [isAdmin])
   const [careerYears, setCareerYears]   = useState('')
   const [careerMonths, setCareerMonths] = useState('')
   const [prevSalary, setPrevSalary]     = useState('')
@@ -62,6 +77,7 @@ export default function EvalInput() {
 
   const validate = () => {
     if (!jobType) return '직무유형을 선택해 주세요.'
+    if (isAdmin && !part) return '파트를 선택해 주세요.'
     if (selections.certification && certSub.type1 && certSub.type2)
       return '자격증 항목: ①동종직무와 ②타직무는 동시에 선택할 수 없습니다.'
     const y = parseInt(careerYears) || 0
@@ -101,7 +117,7 @@ export default function EvalInput() {
     setResult({
       id: Date.now(),
       name:   name.trim()  || '(이름 미입력)',
-      part:   part.trim()  || '(파트 미입력)',
+      part:   (isAdmin ? part : myPart) || '(파트 미입력)',
       jobType,
       careerYears: y,
       careerMonths: m,
@@ -121,7 +137,7 @@ export default function EvalInput() {
   }
 
   const handleReset = () => {
-    setJobType(null); setName(''); setPart('')
+    setJobType(null); setName(''); setPart(isAdmin ? '' : (myPart || ''))
     setCareerYears(''); setCareerMonths(''); setPrevSalary('')
     setSelections({}); setCertSub(CERT_SUB_INIT); setError(''); setResult(null)
   }
@@ -172,7 +188,15 @@ export default function EvalInput() {
           </div>
           <div>
             <div className="info-label">소속 파트 / 부서</div>
-            <input className="info-input" value={part} onChange={e => setPart(e.target.value)} placeholder="배치 예정 파트" />
+            {isAdmin ? (
+              <select className="info-input" value={part} onChange={e => setPart(e.target.value)}>
+                <option value="">파트 선택</option>
+                {partList.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+              </select>
+            ) : (
+              <input className="info-input" value={myPart || '(파트 미배정)'} readOnly
+                style={{ background: '#f1f5f9', color: '#64748b' }} />
+            )}
           </div>
         </div>
         <div className="info-grid">

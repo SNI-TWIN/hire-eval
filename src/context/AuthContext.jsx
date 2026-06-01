@@ -1,24 +1,48 @@
 import { createContext, useContext, useState, useEffect } from 'react'
-import { auth } from '../firebase'
+import { auth, db } from '../firebase'
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth'
+import { doc, getDoc } from 'firebase/firestore'
 
 const AuthContext = createContext(null)
 
+// 부트스트랩 관리자 — users 문서가 없어도 이 이메일은 최초 관리자로 인정 (닭-달걀 문제 해결)
+const BOOTSTRAP_ADMINS = ['sceom@sni.co.kr']
+
 export function AuthProvider({ children }) {
   const [user, setUser]       = useState(null)
+  const [profile, setProfile] = useState(null)   // users/{uid} 문서
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, u => { setUser(u); setLoading(false) })
-    return unsub
+    return onAuthStateChanged(auth, async u => {
+      setUser(u)
+      if (u) {
+        let prof = null
+        try {
+          // 명단(users)은 이메일(소문자)을 문서 ID로 사용 — 관리자가 로그인 전에 미리 등록 가능
+          const snap = await getDoc(doc(db, 'users', (u.email || '').toLowerCase()))
+          if (snap.exists()) prof = snap.data()
+        } catch { /* 규칙/네트워크 오류 시 미등록으로 처리 */ }
+
+        const isBoot = BOOTSTRAP_ADMINS.includes((u.email || '').toLowerCase())
+        if (isBoot) prof = { email: u.email, name: prof?.name || u.email, part: prof?.part ?? null, ...prof, isAdmin: true }
+        setProfile(prof)
+      } else {
+        setProfile(null)
+      }
+      setLoading(false)
+    })
   }, [])
 
   const login  = (email, pw) => signInWithEmailAndPassword(auth, email, pw)
   const logout = () => signOut(auth)
-  const isAdmin = !!user
+
+  const isAdmin   = !!profile?.isAdmin   // 관리자 표시된 계정만
+  const part      = profile?.part ?? null
+  const hasAccess = !!profile            // 명단(users)에 있거나 부트스트랩 관리자라야 포털 진입
 
   return (
-    <AuthContext.Provider value={{ user, isAdmin, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, profile, isAdmin, part, hasAccess, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   )

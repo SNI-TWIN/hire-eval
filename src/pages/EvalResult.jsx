@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Wrench, Clock, ArrowLeftRight, Lightbulb, Download } from 'lucide-react'
 import { db } from '../firebase'
 import { doc, setDoc } from 'firebase/firestore'
+import { useAuth } from '../context/AuthContext'
 import { CATEGORY_ITEMS, CATEGORY_NAMES, ITEM_NAMES, GRADE_STYLE, GRADE_NAMES, JT_COLOR, JT_TAG_STYLE } from '../utils/constants'
 import { useParams } from '../context/ParamsContext'
 import { formatCareer } from '../utils/career'
@@ -24,6 +25,7 @@ const CAT_ICONS = {
 
 export default function EvalResult({ result: r, onBack, onReset }) {
   const { params }          = useParams()
+  const { user }            = useAuth()
   const [saved, setSaved]   = useState(false)
   const [saving, setSaving] = useState(false)
   const [toast, setToast]   = useState('')
@@ -37,7 +39,9 @@ export default function EvalResult({ result: r, onBack, onReset }) {
     if (saving) return
     setSaving(true)
     try {
-      await setDoc(doc(db, 'candidates', String(r.id)), { ...r, status })
+      await setDoc(doc(db, 'candidates', String(r.id)), {
+        ...r, status, ownerUid: user?.uid || null, ownerEmail: user?.email || null,
+      })
       setSaved(true)
       showToast(status === 'candidate' ? '채용 후보로 저장되었습니다.' : '채용 확정으로 저장되었습니다.')
     } catch (e) {
