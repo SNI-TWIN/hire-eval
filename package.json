@@ -6,7 +6,7 @@
   "homepage": "https://sni-twin.github.io/hire-eval/",
   "scripts": {
     "dev": "vite",
-    "build": "vite build --force",
+    "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "deploy": "npm run build && gh-pages -d dist"
