@@ -1,14 +1,15 @@
+import { ClipboardList, UserCheck, Users, BarChart2, Target } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 export default function MobileNav({ page, onPage, candidateCount }) {
   const { isAdmin } = useAuth()
 
   const items = [
-    { id: 'eval',       icon: '📝', label: '평가입력' },
-    { id: 'candidates', icon: '📋', label: '후보목록' },
-    { id: 'personnel',  icon: '👥', label: '인원현황', admin: true },
-    { id: 'charts',     icon: '📊', label: '분석',     admin: true },
-    { id: 'to',         icon: '🎯', label: 'T/O',      admin: true },
+    { id: 'eval',       Icon: ClipboardList, label: '채용평가' },
+    { id: 'candidates', Icon: UserCheck,     label: '채용 후보 목록' },
+    { id: 'personnel',  Icon: Users,         label: '인원 현황', admin: true },
+    { id: 'charts',     Icon: BarChart2,     label: '차트 분석',  admin: true },
+    { id: 'to',         Icon: Target,        label: 'T/O 현황',  admin: true },
   ]
 
   return (
@@ -21,7 +22,7 @@ export default function MobileNav({ page, onPage, candidateCount }) {
             className={`mobile-nav-item${page === m.id ? ' active' : ''}`}
             onClick={() => onPage(m.id)}
           >
-            <span className="mobile-nav-icon">{m.icon}</span>
+            <span className="mobile-nav-icon"><m.Icon size={22} /></span>
             {m.label}
             {m.id === 'candidates' && candidateCount > 0 && (
               <span style={{ color: '#0d9488', fontWeight: 700 }}>({candidateCount})</span>

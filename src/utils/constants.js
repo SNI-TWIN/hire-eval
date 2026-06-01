@@ -26,13 +26,13 @@ export const GRADE_NAMES = {
 
 // ── 평가 항목 레이블 ──────────────────────────
 export const CATEGORY_NAMES = {
-  jobSkill:    '직무 전문성',
-  sincerity:   '성실성',
-  adaptability:'적응력',
-  problemSolving:'문제 해결',
+  jobSkill:       '직무 전문성',
+  sincerity:      '성실성',
+  adaptability:   '적응력',
+  problemSolving: '문제 해결',
 }
 export const ITEM_NAMES = {
-  certification:      '법정 자격증',
+  certification:      '자격증',
   experience:         '실무 경력',
   equipment:          '장비 숙련도',
   education:          '학력',
@@ -44,6 +44,13 @@ export const ITEM_NAMES = {
   culture:            '조직 문화 수용성',
   logicalReasoning:   '논리적 원인 추론',
   situationJudgment:  '상황 판단 및 우선순위',
+}
+
+// 항목별 부연 설명 (선택적으로 표시)
+export const ITEM_DESCRIPTIONS = {
+  preparation:       '회사(건물)에 대한 사전조사 및 업종 이해도',
+  logicalReasoning:  "현상만 보지 않고 '왜' 발생했는지 근본 원인을 찾아가는 사고 방식",
+  situationJudgment: '위급 상황에서 무엇을 먼저 해야 하는지(차단/대피/보고) 결정하는 능력',
 }
 
 // ── 기본 파라미터 ─────────────────────────────
@@ -74,9 +81,13 @@ export const DEFAULT_PARAMS = {
   scoring: {
     certification: { '기사/기능장': 10, '산업기사': 8, '기능사/수첩/교육': 6 },
     experience:    { '6년 이상': 10, '3~6년': 8, '1~3년': 6 },
-    equipment:     { '단독 수행': 20, '지시에 따라 조작': 16, '기본 원리만 앎': 12 },
+    equipment: {
+      '장애 발생 시 원인 파악부터 긴급 조치까지 단독 수행 가능': 20,
+      '선임자의 지시에 따라 주요 장비를 무리 없이 조작 가능': 16,
+      '장비 명칭과 기본 원리만 알고 있는 수준': 12,
+    },
     education:     { '대학원/대졸': 10, '전문대졸': 8, '고졸': 6 },
-    careerConsistency: { '3년 이상': 10, '2~3년': 5, '2년 미만': 0 },
+    careerConsistency: { '3년 이상': 10, '2~3년 미만': 5, '1~2년 미만': 0 },
     punctuality:   { '10분 전': 2, '5분 전~정각': 1, '지각': -5 },
     preparation:   { '상': 8, '중': 6, '하': 0 },
     communication: { '상': 10, '중': 5, '하': 0 },

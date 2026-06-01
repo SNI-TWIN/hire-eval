@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Wrench, Clock, ArrowLeftRight, Lightbulb, Download } from 'lucide-react'
 import { db } from '../firebase'
 import { doc, setDoc } from 'firebase/firestore'
 import { CATEGORY_ITEMS, CATEGORY_NAMES, ITEM_NAMES, GRADE_STYLE, GRADE_NAMES, JT_COLOR, JT_TAG_STYLE } from '../utils/constants'
@@ -13,7 +14,13 @@ const SUMMARIES = {
   C: '기본 역량은 갖추고 있으나 보완이 필요합니다. 채용 시 온보딩 계획을 별도 수립하는 것을 권장합니다.',
   D: '역량 보완이 많이 필요합니다. 직무 적합성 재검토 또는 채용 보류를 권장합니다.',
 }
-const CAT_ICONS = { jobSkill: '🔧', sincerity: '⏰', adaptability: '🔁', problemSolving: '💡' }
+
+const CAT_ICONS = {
+  jobSkill:       Wrench,
+  sincerity:      Clock,
+  adaptability:   ArrowLeftRight,
+  problemSolving: Lightbulb,
+}
 
 export default function EvalResult({ result: r, onBack, onReset }) {
   const { params }          = useParams()
@@ -131,10 +138,12 @@ export default function EvalResult({ result: r, onBack, onReset }) {
             }, 0)
             const pct = maxPossible > 0 ? Math.round((score / maxPossible) * 100) : 0
             const barColor = pct >= 75 ? '#0d9488' : pct >= 50 ? '#3b82f6' : pct >= 33 ? '#f59e0b' : '#ef4444'
+            const Icon = CAT_ICONS[cat]
             return (
               <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                <div style={{ fontSize: 12, width: 80, color: '#374151', flexShrink: 0 }}>
-                  {CAT_ICONS[cat]} {CATEGORY_NAMES[cat]}
+                <div style={{ fontSize: 12, width: 90, color: '#374151', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <Icon size={13} style={{ flexShrink: 0 }} />
+                  {CATEGORY_NAMES[cat]}
                 </div>
                 <div style={{ flex: 1, height: 8, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
                   <div style={{ width: `${pct}%`, height: 8, background: barColor, borderRadius: 4, transition: 'width 0.8s' }} />
@@ -149,32 +158,36 @@ export default function EvalResult({ result: r, onBack, onReset }) {
       {/* 항목별 상세 */}
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-title">항목별 점수 상세</div>
-        {Object.entries(CATEGORY_ITEMS).map(([cat, items]) => (
-          <div key={cat} style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              {CAT_ICONS[cat]} {CATEGORY_NAMES[cat]}
+        {Object.entries(CATEGORY_ITEMS).map(([cat, items]) => {
+          const Icon = CAT_ICONS[cat]
+          return (
+            <div key={cat} style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
+                <Icon size={13} />
+                {CATEGORY_NAMES[cat]}
+              </div>
+              {items.map(k => {
+                const s    = r.raw[k] ?? 0
+                const maxS = Math.max(1, ...Object.values(params.scoring[k] ?? {}).map(Number))
+                const pctItem = Math.max(0, Math.round((s / maxS) * 100))
+                const bc   = pctItem >= 75 ? '#0d9488' : pctItem >= 50 ? '#3b82f6' : pctItem >= 25 ? '#f59e0b' : s < 0 ? '#ef4444' : '#94a3b8'
+                const sel  = r.selections[k] ?? '—'
+                return (
+                  <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                    <div style={{ fontSize: 13, color: '#374151', width: 150, flexShrink: 0 }}>{ITEM_NAMES[k]}</div>
+                    <div style={{ flex: 1, height: 8, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
+                      <div style={{ width: `${pctItem}%`, maxWidth: '100%', height: 8, background: bc, borderRadius: 4, transition: 'width 0.8s' }} />
+                    </div>
+                    <div style={{ fontSize: 12, color: '#64748b', width: 120, flexShrink: 0 }}>{sel}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: s < 0 ? '#e53e3e' : '#1a202c', width: 40, textAlign: 'right' }}>
+                      {s >= 0 ? `+${s}` : s}점
+                    </div>
+                  </div>
+                )
+              })}
             </div>
-            {items.map(k => {
-              const s    = r.raw[k] ?? 0
-              const maxS = Math.max(1, ...Object.values(params.scoring[k] ?? {}).map(Number))
-              const pctItem = Math.max(0, Math.round((s / maxS) * 100))
-              const bc   = pctItem >= 75 ? '#0d9488' : pctItem >= 50 ? '#3b82f6' : pctItem >= 25 ? '#f59e0b' : s < 0 ? '#ef4444' : '#94a3b8'
-              const sel  = r.selections[k] ?? '—'
-              return (
-                <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                  <div style={{ fontSize: 13, color: '#374151', width: 150, flexShrink: 0 }}>{ITEM_NAMES[k]}</div>
-                  <div style={{ flex: 1, height: 8, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
-                    <div style={{ width: `${pctItem}%`, maxWidth: '100%', height: 8, background: bc, borderRadius: 4, transition: 'width 0.8s' }} />
-                  </div>
-                  <div style={{ fontSize: 12, color: '#64748b', width: 120, flexShrink: 0 }}>{sel}</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: s < 0 ? '#e53e3e' : '#1a202c', width: 40, textAlign: 'right' }}>
-                    {s >= 0 ? `+${s}` : s}점
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* 종합 의견 */}
@@ -207,7 +220,9 @@ export default function EvalResult({ result: r, onBack, onReset }) {
             저장 완료
           </div>
         )}
-        <button className="btn-icon" onClick={() => exportEvalSheet(r)}>📥 엑셀 다운로드</button>
+        <button className="btn-icon" onClick={() => exportEvalSheet(r)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Download size={14} /> 엑셀 다운로드
+        </button>
         <button className="btn-secondary" onClick={onBack}>← 평가 입력으로</button>
         <button className="btn-danger"    onClick={onReset}>초기화 후 새 입력</button>
         {toast && (
