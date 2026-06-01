@@ -156,7 +156,7 @@ export default function EvalInput() {
       {/* ① 직무유형 */}
       <div className="card">
         <div className="card-title">① 직무유형 선택 <span className="badge badge-warn">필수</span></div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(96px, 1fr))', gap: 14 }}>
           {JOB_TYPES.map(jt => (
             <div
               key={jt.id}
@@ -243,7 +243,7 @@ export default function EvalInput() {
                 {CATEGORY_NAMES[cat]}
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
                 {items.map(itemKey => {
                   const opts     = params.scoring[itemKey] ?? {}
                   const maxScore = Math.max(...Object.values(opts))

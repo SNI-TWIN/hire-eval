@@ -3,7 +3,7 @@ import { db } from '../firebase'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { useAuth } from '../context/AuthContext'
 import { useParams } from '../context/ParamsContext'
-import { calcCurrentCareer, totalCareerYears, getCareerLevel } from '../utils/career'
+import { calcCurrentCareer, totalCareerYears } from '../utils/career'
 import { JT_COLOR, JOB_TYPES } from '../utils/constants'
 import { Scatter } from 'react-chartjs-2'
 import {
@@ -16,19 +16,14 @@ export default function Charts() {
   const { isAdmin } = useAuth()
   const { params }  = useParams()
   const [employees, setEmployees] = useState([])
-  const [candidates, setCandidates] = useState([])
 
   useEffect(() => {
-    const u1 = onSnapshot(collection(db, 'employees'),  s => setEmployees(s.docs.map(d => d.data())))
-    const u2 = onSnapshot(collection(db, 'candidates'), s => setCandidates(s.docs.map(d => d.data())))
-    return () => { u1(); u2() }
+    return onSnapshot(collection(db, 'employees'), s => setEmployees(s.docs.map(d => d.data())))
   }, [])
 
   if (!isAdmin) return <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>관리자 로그인이 필요합니다.</div>
 
-  const confirmed = candidates.filter(c => c.status === 'confirmed' && c.confirmedSalary)
-
-  // 직무유형별 데이터셋
+  // 직무유형별 데이터셋 — 인원 현황(employees) 기준
   const datasets = JOB_TYPES.map(jt => {
     const empPoints = employees
       .filter(e => e.jobType === jt && e.currentSalary > 0)
@@ -36,15 +31,9 @@ export default function Charts() {
         const cur = calcCurrentCareer(e.careerYears, e.careerMonths, e.careerInputDate)
         return { x: parseFloat(totalCareerYears(cur.years, cur.months).toFixed(1)), y: e.currentSalary, label: e.name }
       })
-    const confPoints = confirmed
-      .filter(c => c.jobType === jt)
-      .map(c => {
-        const cur = calcCurrentCareer(c.careerYears, c.careerMonths, c.careerInputDate)
-        return { x: parseFloat(totalCareerYears(cur.years, cur.months).toFixed(1)), y: c.confirmedSalary, label: c.name }
-      })
     return {
       label: jt,
-      data: [...empPoints, ...confPoints],
+      data: empPoints,
       backgroundColor: JT_COLOR[jt] + 'cc',
       pointRadius: 7,
       pointHoverRadius: 9,
@@ -67,20 +56,20 @@ export default function Charts() {
     }
   }
 
-  const total = employees.length + confirmed.length
+  const total = employees.length
 
   return (
     <div>
       <div className="page-title">차트 분석</div>
-      <div className="page-desc">직무유형별 경력-연봉 분포를 시각화합니다. (재직자 + 채용확정자)</div>
+      <div className="page-desc">직무유형별 경력-연봉 분포를 시각화합니다. (인원 현황 기준)</div>
 
       {/* 요약 카드 */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 20 }}>
         {[
           { label: '전체 인원', value: total + '명', color: '#0d9488' },
           ...JOB_TYPES.map(jt => ({
             label: jt,
-            value: (employees.filter(e => e.jobType === jt).length + confirmed.filter(c => c.jobType === jt).length) + '명',
+            value: employees.filter(e => e.jobType === jt).length + '명',
             color: JT_COLOR[jt],
           }))
         ].map(s => (
@@ -95,7 +84,7 @@ export default function Charts() {
       <div className="card">
         <div className="card-title">경력 vs 연봉 분포</div>
         {total === 0 ? (
-          <div className="table-empty">표시할 데이터가 없습니다.<br/>인원 현황 또는 채용 확정 데이터를 먼저 입력하세요.</div>
+          <div className="table-empty">표시할 데이터가 없습니다.<br/>인원 현황 데이터를 먼저 입력하세요.</div>
         ) : (
           <Scatter data={{ datasets }} options={options} />
         )}

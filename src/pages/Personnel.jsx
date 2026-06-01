@@ -59,7 +59,7 @@ export default function Personnel() {
       <div className="page-desc">기존 재직자 및 채용 확정자의 경력과 현재 연봉을 관리합니다. 경력은 입력 시점 기준 자동 증가합니다.</div>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 12 }}>
-        <button className="btn-icon" onClick={() => exportPersonnelCSV(employees, [])}>📥 CSV 내보내기</button>
+        <button className="btn-icon" onClick={() => exportPersonnelCSV(employees)}>📥 CSV 내보내기</button>
         <button className="btn-primary" onClick={() => setShowAdd(true)}>+ 직원 추가</button>
       </div>
 

@@ -25,7 +25,7 @@ const CAT_ICONS = {
 
 export default function EvalResult({ result: r, onBack, onReset }) {
   const { params }          = useParams()
-  const { user }            = useAuth()
+  const { user, isAdmin }   = useAuth()
   const [saved, setSaved]   = useState(false)
   const [saving, setSaving] = useState(false)
   const [toast, setToast]   = useState('')
@@ -35,17 +35,44 @@ export default function EvalResult({ result: r, onBack, onReset }) {
     setTimeout(() => setToast(''), 2500)
   }
 
-  const handleSave = async (status) => {
+  // 채용 후보로 저장 — candidates 컬렉션에 보관
+  const handleSaveCandidate = async () => {
     if (saving) return
     setSaving(true)
     try {
       await setDoc(doc(db, 'candidates', String(r.id)), {
-        ...r, status, ownerUid: user?.uid || null, ownerEmail: user?.email || null,
+        ...r, status: 'candidate', ownerUid: user?.uid || null, ownerEmail: user?.email || null,
       })
       setSaved(true)
-      showToast(status === 'candidate' ? '채용 후보로 저장되었습니다.' : '채용 확정으로 저장되었습니다.')
+      showToast('채용 후보로 저장되었습니다.')
     } catch (e) {
       showToast('저장 실패: ' + e.message, false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // 채용 확정 — 인원 현황(employees)에 바로 등록 (관리자 전용)
+  const handleConfirm = async () => {
+    if (saving) return
+    setSaving(true)
+    try {
+      await setDoc(doc(db, 'employees', String(r.id)), {
+        id: r.id,
+        name: r.name,
+        part: r.part,
+        jobType: r.jobType,
+        careerYears: r.careerYears,
+        careerMonths: r.careerMonths,
+        careerInputDate: r.careerInputDate,
+        currentSalary: r.recSalary,
+        memo: `채용확정 (${r.grade}등급 · ${r.total}점)`,
+        addedDate: new Date().toLocaleDateString('ko-KR'),
+      })
+      setSaved(true)
+      showToast('채용 확정 — 인원 현황에 등록되었습니다.')
+    } catch (e) {
+      showToast('확정 실패: ' + e.message, false)
     } finally {
       setSaving(false)
     }
@@ -87,7 +114,7 @@ export default function EvalResult({ result: r, onBack, onReset }) {
       </div>
 
       {/* 점수 + 연봉 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 16, marginBottom: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16, marginBottom: 16 }}>
         {/* 원형 점수 */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <div style={{ fontSize: 13, color: '#64748b', marginBottom: 12, fontWeight: 500 }}>종합 평가 점수</div>
@@ -207,17 +234,19 @@ export default function EvalResult({ result: r, onBack, onReset }) {
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         {!saved ? (
           <>
-            <button className="btn-primary" onClick={() => handleSave('candidate')} disabled={saving}>
+            <button className="btn-primary" onClick={handleSaveCandidate} disabled={saving}>
               채용 후보 저장
             </button>
-            <button
-              className="btn-primary"
-              style={{ background: 'linear-gradient(135deg,#7c3aed,#6d28d9)' }}
-              onClick={() => handleSave('confirmed')}
-              disabled={saving || r.grade === 'D'}
-            >
-              채용 확정 저장
-            </button>
+            {isAdmin && (
+              <button
+                className="btn-primary"
+                style={{ background: 'linear-gradient(135deg,#7c3aed,#6d28d9)' }}
+                onClick={handleConfirm}
+                disabled={saving || r.grade === 'D'}
+              >
+                채용 확정 저장
+              </button>
+            )}
           </>
         ) : (
           <div style={{ fontSize: 13, color: '#0b7a70', fontWeight: 500, background: '#e6faf7', padding: '8px 16px', borderRadius: 8 }}>

@@ -85,7 +85,7 @@ export default function ParamsPage() {
 
       {/* 연봉기준표 탭 */}
       {tab === '연봉기준표' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
           {JOB_TYPES.map(jt => (
             <div key={jt} className="card">
               <div className="card-title" style={{ marginBottom: 12 }}>{jt}</div>
@@ -131,7 +131,7 @@ export default function ParamsPage() {
 
       {/* 면접배점 탭 */}
       {tab === '면접배점' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
           {Object.entries(CATEGORY_ITEMS).map(([cat, items]) => (
             <div key={cat} className="card">
               <div className="card-title" style={{ marginBottom: 12 }}>{CATEGORY_NAMES[cat]}</div>

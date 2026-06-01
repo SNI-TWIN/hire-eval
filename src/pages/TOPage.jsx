@@ -7,24 +7,22 @@ import { JT_COLOR, JT_TAG_STYLE } from '../utils/constants'
 export default function TOPage() {
   const { isAdmin }   = useAuth()
   const [employees, setEmployees]     = useState([])
-  const [candidates, setCandidates]   = useState([])
   const [toConfig, setToConfig]       = useState([])   // [{ part, jobType, to }]
   const [editing, setEditing]         = useState(false)
   const [draft, setDraft]             = useState([])
 
   useEffect(() => {
-    const u1 = onSnapshot(collection(db, 'employees'),  s => setEmployees(s.docs.map(d => d.data())))
-    const u2 = onSnapshot(collection(db, 'candidates'), s => setCandidates(s.docs.map(d => d.data())))
+    const u1 = onSnapshot(collection(db, 'employees'), s => setEmployees(s.docs.map(d => d.data())))
     getDoc(doc(db, 'settings', 'to_config')).then(snap => {
       if (snap.exists()) setToConfig(snap.data().parts ?? [])
     })
-    return () => { u1(); u2() }
+    return () => { u1() }
   }, [])
 
   if (!isAdmin) return <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>관리자 로그인이 필요합니다.</div>
 
-  const confirmed   = candidates.filter(c => c.status === 'confirmed')
-  const allPersonnel= [...employees, ...confirmed]
+  // 현원 = 인원 현황(employees). 채용 확정 시 employees로 등록됨.
+  const allPersonnel = employees
 
   // 파트별 현원 집계
   const countByPart = {}
@@ -58,7 +56,7 @@ export default function TOPage() {
       <div className="page-desc">파트별 정원(T/O) 대비 현원을 확인하고 관리합니다.</div>
 
       {/* 전체 요약 */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 20 }}>
         {[
           { label: '전체 T/O', value: totalTo + '명', color: '#0d9488' },
           { label: '현재 인원', value: totalCur + '명', color: '#3b82f6' },

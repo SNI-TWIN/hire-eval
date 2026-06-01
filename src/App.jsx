@@ -85,7 +85,7 @@ export default function App() {
 
         <main className="main-content">
           {page === 'eval'       && <EvalInput />}
-          {page === 'candidates' && <Candidates candidates={candidates} onPage={goPage} />}
+          {page === 'candidates' && <Candidates candidates={candidates} />}
           {page === 'personnel'  && <Personnel />}
           {page === 'charts'     && <Charts />}
           {page === 'to'         && <TOPage />}

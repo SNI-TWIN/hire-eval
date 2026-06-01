@@ -57,27 +57,19 @@ export function exportEvalSheet(result) {
 }
 
 /**
- * 인원 목록 → CSV 다운로드
+ * 인원 현황(employees) → CSV 다운로드
+ * 채용 확정자는 확정 시 employees에 등록되므로 별도 병합 불필요
  */
-export function exportPersonnelCSV(employees, candidates) {
-  const confirmed = (candidates ?? []).filter(c => c.status === 'confirmed')
-  const all = [
-    ...employees.map(e => ({ ...e, _type: '재직자' })),
-    ...confirmed.map(c => ({ ...c, _type: '채용확정', currentSalary: c.confirmedSalary })),
-  ]
-
-  const headers = ['구분', '이름', '파트', '직무유형', '경력(현재)', '경력등급', '현재연봉(만원)', '추천연봉(만원)', '메모']
-  const rows = all.map(p => {
+export function exportPersonnelCSV(employees) {
+  const headers = ['이름', '파트', '직무유형', '경력(현재)', '현재연봉(만원)', '메모']
+  const rows = (employees ?? []).map(p => {
     const cur = calcCurrentCareer(p.careerYears, p.careerMonths, p.careerInputDate)
     return [
-      p._type,
       p.name,
       p.part,
       p.jobType,
       formatCareer(cur.years, cur.months),
-      p.careerLevel ?? '—',
       p.currentSalary || '',
-      p.recSalary || '',
       p.memo || '',
     ]
   })
