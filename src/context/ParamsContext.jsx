@@ -58,10 +58,12 @@ export function ParamsProvider({ children }) {
         const { scoring, changed } = migrateScoring(data.scoring ?? {})
         setParams(prev => ({
           ...prev,
+          categories:      data.categories      ?? prev.categories,
+          items:           data.items           ?? prev.items,
           careerLevels:    data.careerLevels    ?? prev.careerLevels,
           scoring,
           gradeThresholds: data.gradeThresholds ?? prev.gradeThresholds,
-          gradeRatio:      data.gradeRatio      ?? prev.gradeRatio,
+          gradePos:        data.gradePos        ?? prev.gradePos,
         }))
         if (changed) {
           setDoc(doc(db, 'settings', 'params_v2'), { ...data, scoring }).catch(() => {})

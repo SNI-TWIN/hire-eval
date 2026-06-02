@@ -53,8 +53,22 @@ export const ITEM_DESCRIPTIONS = {
   situationJudgment: '위급 상황에서 무엇을 먼저 해야 하는지(차단/대피/보고) 결정하는 능력',
 }
 
+// 면접 평가 항목 → 카테고리 매핑 (DEFAULT_PARAMS.items 생성용)
+const ITEM_CATEGORY = {
+  certification: 'jobSkill', experience: 'jobSkill', equipment: 'jobSkill', education: 'jobSkill',
+  careerConsistency: 'sincerity', punctuality: 'sincerity', preparation: 'sincerity',
+  communication: 'adaptability', flexibility: 'adaptability', culture: 'adaptability',
+  logicalReasoning: 'problemSolving', situationJudgment: 'problemSolving',
+}
+
 // ── 기본 파라미터 ─────────────────────────────
 export const DEFAULT_PARAMS = {
+  // 면접 평가 카테고리 (순서 = 표시 순서)
+  categories: Object.entries(CATEGORY_NAMES).map(([key, name]) => ({ key, name })),
+  // 면접 평가 항목 (순서 = 표시 순서, category = 소속 카테고리 key)
+  items: Object.keys(ITEM_NAMES).map(key => ({
+    key, name: ITEM_NAMES[key], desc: ITEM_DESCRIPTIONS[key] || '', category: ITEM_CATEGORY[key],
+  })),
   // 직무유형별 경력등급 + 기준연봉 (단위: 만원)
   careerLevels: {
     '현장주간': [
@@ -98,8 +112,8 @@ export const DEFAULT_PARAMS = {
   },
   // 면접 등급 기준
   gradeThresholds: { S: 90, A: 80, B: 65, C: 55 },
-  // 등급별 연봉 배율
-  gradeRatio: { S: 1.10, A: 1.05, B: 1.00, C: 0.97 },
+  // 등급별 밴드 내 위치 (0 = 기준연봉/하한, 1 = 다음 등급/상한)
+  gradePos: { S: 0.80, A: 0.60, B: 0.40, C: 0.20 },
 }
 
 // 카테고리별 항목 구성

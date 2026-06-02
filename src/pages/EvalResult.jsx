@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Wrench, Clock, ArrowLeftRight, Lightbulb, Download } from 'lucide-react'
+import { Wrench, Clock, ArrowLeftRight, Lightbulb, CircleDot, Download } from 'lucide-react'
 import { db } from '../firebase'
 import { doc, setDoc } from 'firebase/firestore'
 import { useAuth } from '../context/AuthContext'
-import { CATEGORY_ITEMS, CATEGORY_NAMES, ITEM_NAMES, GRADE_STYLE, GRADE_NAMES, JT_COLOR, JT_TAG_STYLE } from '../utils/constants'
+import { GRADE_STYLE, GRADE_NAMES, JT_COLOR, JT_TAG_STYLE } from '../utils/constants'
+import { buildEvalSchema } from '../utils/schema'
 import { useParams } from '../context/ParamsContext'
 import { formatCareer } from '../utils/career'
 import { exportEvalSheet } from '../utils/excel'
@@ -22,6 +23,7 @@ const CAT_ICONS = {
   adaptability:   ArrowLeftRight,
   problemSolving: Lightbulb,
 }
+const catIcon = key => CAT_ICONS[key] ?? CircleDot
 
 export default function EvalResult({ result: r, onBack, onReset }) {
   const { params }          = useParams()
@@ -65,6 +67,7 @@ export default function EvalResult({ result: r, onBack, onReset }) {
         careerYears: r.careerYears,
         careerMonths: r.careerMonths,
         careerInputDate: r.careerInputDate,
+        careerLevel: r.careerLevel ?? null,   // 평가 시점 경력등급 스냅샷 (재계산 실패 시 폴백)
         currentSalary: r.recSalary,
         memo: `채용확정 (${r.grade}등급 · ${r.total}점)`,
         addedDate: new Date().toLocaleDateString('ko-KR'),
@@ -78,6 +81,7 @@ export default function EvalResult({ result: r, onBack, onReset }) {
     }
   }
 
+  const schema  = buildEvalSchema(params)
   const jtColor = JT_COLOR[r.jobType] || '#0d9488'
   const jtStyle = JT_TAG_STYLE[r.jobType] || {}
   const gs      = GRADE_STYLE[r.grade]
@@ -161,20 +165,18 @@ export default function EvalResult({ result: r, onBack, onReset }) {
             )}
           </div>
           {/* 카테고리별 소계 바 */}
-          {Object.entries(CATEGORY_ITEMS).map(([cat, items]) => {
-            const score = r.catScores[cat] ?? 0
-            const maxPossible = items.reduce((s, k) => {
-              const opts = params.scoring[k] ?? {}
-              return s + Math.max(0, ...Object.values(opts).map(Number))
-            }, 0)
+          {schema.map(cat => {
+            const score = r.catScores[cat.key] ?? 0
+            const maxPossible = cat.items.reduce((s, it) =>
+              s + Math.max(0, ...Object.values(it.options).map(Number)), 0)
             const pct = maxPossible > 0 ? Math.round((score / maxPossible) * 100) : 0
             const barColor = pct >= 75 ? '#0d9488' : pct >= 50 ? '#3b82f6' : pct >= 33 ? '#f59e0b' : '#ef4444'
-            const Icon = CAT_ICONS[cat]
+            const Icon = catIcon(cat.key)
             return (
-              <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <div key={cat.key} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
                 <div style={{ fontSize: 12, width: 90, color: '#374151', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5 }}>
                   <Icon size={13} style={{ flexShrink: 0 }} />
-                  {CATEGORY_NAMES[cat]}
+                  {cat.name}
                 </div>
                 <div style={{ flex: 1, height: 8, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
                   <div style={{ width: `${pct}%`, height: 8, background: barColor, borderRadius: 4, transition: 'width 0.8s' }} />
@@ -189,23 +191,24 @@ export default function EvalResult({ result: r, onBack, onReset }) {
       {/* 항목별 상세 */}
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-title">항목별 점수 상세</div>
-        {Object.entries(CATEGORY_ITEMS).map(([cat, items]) => {
-          const Icon = CAT_ICONS[cat]
+        {schema.map(cat => {
+          const Icon = catIcon(cat.key)
           return (
-            <div key={cat} style={{ marginBottom: 16 }}>
+            <div key={cat.key} style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
                 <Icon size={13} />
-                {CATEGORY_NAMES[cat]}
+                {cat.name}
               </div>
-              {items.map(k => {
+              {cat.items.map(it => {
+                const k    = it.key
                 const s    = r.raw[k] ?? 0
-                const maxS = Math.max(1, ...Object.values(params.scoring[k] ?? {}).map(Number))
+                const maxS = Math.max(1, ...Object.values(it.options).map(Number))
                 const pctItem = Math.max(0, Math.round((s / maxS) * 100))
                 const bc   = pctItem >= 75 ? '#0d9488' : pctItem >= 50 ? '#3b82f6' : pctItem >= 25 ? '#f59e0b' : s < 0 ? '#ef4444' : '#94a3b8'
                 const sel  = r.selections[k] ?? '—'
                 return (
                   <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                    <div style={{ fontSize: 13, color: '#374151', width: 150, flexShrink: 0 }}>{ITEM_NAMES[k]}</div>
+                    <div style={{ fontSize: 13, color: '#374151', width: 150, flexShrink: 0 }}>{it.name}</div>
                     <div style={{ flex: 1, height: 8, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
                       <div style={{ width: `${pctItem}%`, maxWidth: '100%', height: 8, background: bc, borderRadius: 4, transition: 'width 0.8s' }} />
                     </div>
@@ -253,7 +256,7 @@ export default function EvalResult({ result: r, onBack, onReset }) {
             저장 완료
           </div>
         )}
-        <button className="btn-icon" onClick={() => exportEvalSheet(r)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <button className="btn-icon" onClick={() => exportEvalSheet(r, params)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Download size={14} /> 엑셀 다운로드
         </button>
         <button className="btn-secondary" onClick={onBack}>← 평가 입력으로</button>

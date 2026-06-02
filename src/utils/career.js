@@ -45,3 +45,22 @@ export function getCareerLevel(jobType, totalYears, careerLevels) {
   }
   return levels[levels.length - 1]
 }
+
+/**
+ * 경력등급 연봉밴드 [하한, 상한)
+ * 기준연봉 = 해당 등급의 최저 연봉(하한), 상한 = 다음 등급의 기준연봉(미만)
+ * 최상위 등급은 다음 등급이 없으므로 ceiling = null
+ * @returns {{ level, floor: number, ceiling: number|null }|null}
+ */
+export function getCareerRange(jobType, totalYears, careerLevels) {
+  const levels = careerLevels[jobType]
+  if (!levels || levels.length === 0) return null
+  for (let i = 0; i < levels.length; i++) {
+    const level = levels[i]
+    if (totalYears >= level.minYears && (level.maxYears === null || totalYears < level.maxYears)) {
+      return { level, floor: level.salary, ceiling: levels[i + 1]?.salary ?? null }
+    }
+  }
+  const last = levels[levels.length - 1]
+  return { level: last, floor: last.salary, ceiling: null }
+}

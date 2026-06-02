@@ -4,9 +4,10 @@ import { db } from '../firebase'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { useAuth } from '../context/AuthContext'
 import { useParams } from '../context/ParamsContext'
-import { calcCurrentCareer, totalCareerYears, getCareerLevel } from '../utils/career'
+import { calcCurrentCareer, totalCareerYears, getCareerRange } from '../utils/career'
 import { calcGrade, calcRecommendedSalary } from '../utils/salary'
-import { CATEGORY_ITEMS, CATEGORY_NAMES, ITEM_NAMES, ITEM_DESCRIPTIONS, JT_COLOR, JT_TAG_STYLE } from '../utils/constants'
+import { JT_COLOR, JT_TAG_STYLE } from '../utils/constants'
+import { buildEvalSchema, circledNum } from '../utils/schema'
 import EvalResult from './EvalResult'
 
 const JOB_TYPES = [
@@ -97,10 +98,11 @@ export default function EvalInput() {
     const inputDate = new Date().toISOString()
     const current   = calcCurrentCareer(y, m, inputDate)
     const totalYrs  = totalCareerYears(current.years, current.months)
-    const level     = getCareerLevel(jobType, totalYrs, params.careerLevels)
+    const range     = getCareerRange(jobType, totalYrs, params.careerLevels)
+    const level     = range?.level ?? null
     const total     = calcTotal(selections)
     const grade     = calcGrade(total, params.gradeThresholds)
-    const recSalary = calcRecommendedSalary(level?.salary ?? 0, grade, parseInt(prevSalary) || 0, params.gradeRatio)
+    const recSalary = calcRecommendedSalary(range?.floor ?? 0, range?.ceiling ?? null, grade, parseInt(prevSalary) || 0, params.gradePos)
 
     const raw = {}
     Object.entries(selections).forEach(([item, opt]) => {
@@ -110,8 +112,8 @@ export default function EvalInput() {
     })
 
     const catScores = {}
-    Object.entries(CATEGORY_ITEMS).forEach(([cat, items]) => {
-      catScores[cat] = items.reduce((s, k) => s + (raw[k] ?? 0), 0)
+    buildEvalSchema(params).forEach(cat => {
+      catScores[cat.key] = cat.items.reduce((s, it) => s + (raw[it.key] ?? 0), 0)
     })
 
     setResult({
@@ -145,6 +147,7 @@ export default function EvalInput() {
   if (result) return <EvalResult result={result} onBack={() => setResult(null)} onReset={handleReset} />
 
   const certError = !!(selections.certification && certSub.type1 && certSub.type2)
+  const schema    = buildEvalSchema(params)
 
   return (
     <div>
@@ -229,8 +232,8 @@ export default function EvalInput() {
       <div className="card-section">
         <div className="sect-header">③ 면접 평가 항목</div>
         <div className="sect-body">
-          {Object.entries(CATEGORY_ITEMS).map(([cat, items], ci) => (
-            <div key={cat} style={{ marginBottom: ci < 3 ? 28 : 0 }}>
+          {schema.map((cat, ci) => (
+            <div key={cat.key} style={{ marginBottom: ci < schema.length - 1 ? 28 : 0 }}>
               <div style={{
                 fontSize: 14, fontWeight: 700, color: '#1a202c',
                 marginBottom: 14, paddingBottom: 8,
@@ -238,15 +241,17 @@ export default function EvalInput() {
                 display: 'flex', alignItems: 'center', gap: 8,
               }}>
                 <span style={{ background: '#e6faf7', color: '#0b7a70', borderRadius: 6, padding: '2px 10px', fontSize: 12, fontWeight: 600 }}>
-                  {['①','②','③','④'][ci]}
+                  {circledNum(ci)}
                 </span>
-                {CATEGORY_NAMES[cat]}
+                {cat.name}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
-                {items.map(itemKey => {
-                  const opts     = params.scoring[itemKey] ?? {}
-                  const maxScore = Math.max(...Object.values(opts))
+                {cat.items.map(it => {
+                  const itemKey  = it.key
+                  const opts     = it.options
+                  const optVals  = Object.values(opts)
+                  const maxScore = optVals.length ? Math.max(...optVals) : 0
 
                   /* ─── 자격증 특수 카드 ─── */
                   if (itemKey === 'certification') {
@@ -259,7 +264,7 @@ export default function EvalInput() {
                       }}>
                         {/* 항목 헤더 */}
                         <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 10 }}>
-                          {ITEM_NAMES[itemKey]}
+                          {it.name}
                           <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 400, marginLeft: 6 }}>{maxScore}점</span>
                         </div>
 
@@ -361,12 +366,12 @@ export default function EvalInput() {
                   return (
                     <div key={itemKey} style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: 18 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 2 }}>
-                        {ITEM_NAMES[itemKey]}
+                        {it.name}
                         <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 400, marginLeft: 6 }}>{maxScore}점</span>
                       </div>
-                      {ITEM_DESCRIPTIONS[itemKey] && (
+                      {it.desc && (
                         <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8, lineHeight: 1.5 }}>
-                          {ITEM_DESCRIPTIONS[itemKey]}
+                          {it.desc}
                         </div>
                       )}
                       <div className="radio-group" style={{ marginTop: 10 }}>

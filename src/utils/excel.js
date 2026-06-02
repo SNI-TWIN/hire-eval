@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx'
-import { CATEGORY_ITEMS, CATEGORY_NAMES, ITEM_NAMES } from './constants'
+import { buildEvalSchema } from './schema'
 import { formatCareer, calcCurrentCareer } from './career'
 
 /**
@@ -7,7 +7,7 @@ import { formatCareer, calcCurrentCareer } from './career'
  * ※ 실제 사용자 양식 파일을 공유받으면 셀 매핑으로 교체 예정
  *   현재는 구조화된 양식을 자체 생성
  */
-export function exportEvalSheet(result) {
+export function exportEvalSheet(result, params) {
   const r   = result
   const wb  = XLSX.utils.book_new()
   const cur = r.currentCareer ?? { years: r.careerYears, months: r.careerMonths }
@@ -23,13 +23,13 @@ export function exportEvalSheet(result) {
     ['평가 항목', '세부 항목', '선택 내용', '점수'],
   ]
 
-  Object.entries(CATEGORY_ITEMS).forEach(([cat, items]) => {
-    const catScore = r.catScores?.[cat] ?? 0
-    rows.push([CATEGORY_NAMES[cat], '', '', catScore + '점 (소계)'])
-    items.forEach(itemKey => {
-      const sel   = r.selections?.[itemKey] ?? '—'
-      const score = r.raw?.[itemKey] ?? 0
-      rows.push(['', ITEM_NAMES[itemKey], sel, score])
+  buildEvalSchema(params).forEach(cat => {
+    const catScore = r.catScores?.[cat.key] ?? 0
+    rows.push([cat.name, '', '', catScore + '점 (소계)'])
+    cat.items.forEach(it => {
+      const sel   = r.selections?.[it.key] ?? '—'
+      const score = r.raw?.[it.key] ?? 0
+      rows.push(['', it.name, sel, score])
     })
   })
 

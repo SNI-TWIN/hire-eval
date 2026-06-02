@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useParams } from '../context/ParamsContext'
-import { JOB_TYPES, ITEM_NAMES, CATEGORY_ITEMS, CATEGORY_NAMES, GRADE_STYLE } from '../utils/constants'
+import { JOB_TYPES, GRADE_STYLE } from '../utils/constants'
+import { buildEvalSchema } from '../utils/schema'
 
 export default function ParamsPage() {
   const { isAdmin }          = useAuth()
@@ -38,14 +39,6 @@ export default function ParamsPage() {
     })
   }
 
-  const updScoring = (item, opt, v) => {
-    setDraft(p => {
-      const next = JSON.parse(JSON.stringify(p))
-      next.scoring[item][opt] = parseInt(v) || 0
-      return next
-    })
-  }
-
   const updThreshold = (k, v) => {
     setDraft(p => {
       const next = JSON.parse(JSON.stringify(p))
@@ -53,6 +46,54 @@ export default function ParamsPage() {
       return next
     })
   }
+
+  // ── 면접배점 편집 (카테고리 / 항목 / 선택지) ──
+  const clone  = p => JSON.parse(JSON.stringify(p))
+  const genKey = prefix => `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`
+
+  const addCategory = () => setDraft(p => {
+    const n = clone(p); n.categories = n.categories || []
+    n.categories.push({ key: genKey('cat'), name: '새 카테고리' }); return n
+  })
+  const updCategory = (catKey, v) => setDraft(p => {
+    const n = clone(p); const c = (n.categories || []).find(c => c.key === catKey); if (c) c.name = v; return n
+  })
+  const delCategory = (catKey) => setDraft(p => {
+    const n = clone(p)
+    ;(n.items || []).filter(it => it.category === catKey).forEach(it => { delete n.scoring[it.key] })
+    n.items = (n.items || []).filter(it => it.category !== catKey)
+    n.categories = (n.categories || []).filter(c => c.key !== catKey)
+    return n
+  })
+
+  const addItem = (catKey) => setDraft(p => {
+    const n = clone(p); const key = genKey('item')
+    n.items = n.items || []; n.items.push({ key, name: '새 항목', desc: '', category: catKey })
+    n.scoring = n.scoring || {}; n.scoring[key] = {}; return n
+  })
+  const updItem = (itemKey, field, v) => setDraft(p => {
+    const n = clone(p); const it = (n.items || []).find(i => i.key === itemKey); if (it) it[field] = v; return n
+  })
+  const delItem = (itemKey) => setDraft(p => {
+    const n = clone(p); n.items = (n.items || []).filter(i => i.key !== itemKey); delete n.scoring[itemKey]; return n
+  })
+
+  const addOption = (itemKey) => setDraft(p => {
+    const n = clone(p); const opts = n.scoring[itemKey] || {}
+    let label = '새 선택지', k = 1; while (label in opts) label = `새 선택지 ${k++}`
+    opts[label] = 0; n.scoring[itemKey] = opts; return n
+  })
+  const updOptionLabel = (itemKey, idx, newLabel) => setDraft(p => {
+    const n = clone(p); const entries = Object.entries(n.scoring[itemKey] || {})
+    if (entries[idx]) entries[idx][0] = newLabel
+    n.scoring[itemKey] = Object.fromEntries(entries); return n
+  })
+  const updOptionScore = (itemKey, label, v) => setDraft(p => {
+    const n = clone(p); if (n.scoring[itemKey]) n.scoring[itemKey][label] = parseInt(v) || 0; return n
+  })
+  const delOption = (itemKey, label) => setDraft(p => {
+    const n = clone(p); if (n.scoring[itemKey]) delete n.scoring[itemKey][label]; return n
+  })
 
   return (
     <div>
@@ -131,29 +172,94 @@ export default function ParamsPage() {
 
       {/* 면접배점 탭 */}
       {tab === '면접배점' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
-          {Object.entries(CATEGORY_ITEMS).map(([cat, items]) => (
-            <div key={cat} className="card">
-              <div className="card-title" style={{ marginBottom: 12 }}>{CATEGORY_NAMES[cat]}</div>
-              {items.map(itemKey => (
-                <div key={itemKey} style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>{ITEM_NAMES[itemKey]}</div>
-                  {Object.entries(working.scoring[itemKey] ?? {}).map(([opt, score]) => (
-                    <div key={opt} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                      <span style={{ fontSize: 12, color: '#4a5568', flex: 1 }}>{opt}</span>
-                      {draft
-                        ? <input type="number" style={{ width: 56, border: '1px solid #e2e8f0', borderRadius: 4, padding: '3px 6px', fontSize: 12, textAlign: 'right', fontFamily: 'inherit' }}
-                            value={score} onChange={e => updScoring(itemKey, opt, e.target.value)} />
-                        : <span style={{ fontSize: 12, fontWeight: 600, color: score < 0 ? '#e53e3e' : '#0b7a70', width: 36, textAlign: 'right' }}>
-                            {score >= 0 ? `+${score}` : score}점
-                          </span>
-                      }
-                    </div>
-                  ))}
-                </div>
-              ))}
+        <div>
+          {!draft && <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 12 }}>편집 시작을 눌러 카테고리·항목·선택지를 추가/삭제하거나 이름·점수를 수정하세요.</div>}
+
+          {buildEvalSchema(working).map(cat => (
+            <div key={cat.key} className="card" style={{ marginBottom: 16 }}>
+              {/* 카테고리 헤더 */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, paddingBottom: 10, borderBottom: '2px solid #f1f5f9' }}>
+                {draft ? (
+                  <>
+                    <input value={cat.name} onChange={e => updCategory(cat.key, e.target.value)} placeholder="카테고리명"
+                      style={{ fontSize: 15, fontWeight: 700, border: '1px solid #e2e8f0', borderRadius: 6, padding: '5px 10px', fontFamily: 'inherit', flex: 1, maxWidth: 280 }} />
+                    <button className="btn-danger" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => delCategory(cat.key)}>카테고리 삭제</button>
+                  </>
+                ) : (
+                  <div className="card-title" style={{ margin: 0 }}>{cat.name}</div>
+                )}
+              </div>
+
+              {/* 항목들 */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
+                {cat.items.map(it => (
+                  <div key={it.key} style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 14 }}>
+                    {/* 항목 헤더 */}
+                    {draft ? (
+                      <div style={{ marginBottom: 10 }}>
+                        <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                          <input value={it.name} onChange={e => updItem(it.key, 'name', e.target.value)} placeholder="항목명"
+                            style={{ fontSize: 13, fontWeight: 600, border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 8px', fontFamily: 'inherit', flex: 1, minWidth: 0 }} />
+                          <button className="btn-danger" style={{ padding: '2px 8px', fontSize: 11, flexShrink: 0 }} onClick={() => delItem(it.key)}>삭제</button>
+                        </div>
+                        <input value={it.desc} onChange={e => updItem(it.key, 'desc', e.target.value)} placeholder="설명 (선택)"
+                          style={{ width: '100%', boxSizing: 'border-box', fontSize: 11, color: '#64748b', border: '1px solid #e2e8f0', borderRadius: 6, padding: '3px 8px', fontFamily: 'inherit', marginBottom: 6 }} />
+                        <select value={it.category} onChange={e => updItem(it.key, 'category', e.target.value)}
+                          style={{ width: '100%', boxSizing: 'border-box', fontSize: 11, color: '#64748b', border: '1px solid #e2e8f0', borderRadius: 6, padding: '3px 8px', fontFamily: 'inherit' }}>
+                          {(working.categories || []).map(c => <option key={c.key} value={c.key}>{c.name}</option>)}
+                        </select>
+                      </div>
+                    ) : (
+                      <div style={{ marginBottom: 10 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{it.name}</div>
+                        {it.desc && <div style={{ fontSize: 11, color: '#64748b', marginTop: 2, lineHeight: 1.5 }}>{it.desc}</div>}
+                      </div>
+                    )}
+
+                    {/* 선택지 */}
+                    {Object.entries(it.options).map(([opt, score], oi) => (
+                      <div key={oi} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+                        {draft ? (
+                          <>
+                            <input value={opt} onChange={e => updOptionLabel(it.key, oi, e.target.value)} placeholder="선택지"
+                              style={{ flex: 1, minWidth: 0, fontSize: 12, border: '1px solid #e2e8f0', borderRadius: 4, padding: '3px 6px', fontFamily: 'inherit' }} />
+                            <input type="number" value={score} onChange={e => updOptionScore(it.key, opt, e.target.value)}
+                              style={{ width: 56, flexShrink: 0, fontSize: 12, textAlign: 'right', border: '1px solid #e2e8f0', borderRadius: 4, padding: '3px 6px', fontFamily: 'inherit' }} />
+                            <button onClick={() => delOption(it.key, opt)} title="선택지 삭제"
+                              style={{ border: 'none', background: 'none', color: '#cbd5e1', cursor: 'pointer', fontSize: 18, lineHeight: 1, flexShrink: 0 }}>×</button>
+                          </>
+                        ) : (
+                          <>
+                            <span style={{ flex: 1, fontSize: 12, color: '#4a5568' }}>{opt}</span>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: score < 0 ? '#e53e3e' : '#0b7a70', width: 40, textAlign: 'right' }}>
+                              {score >= 0 ? `+${score}` : score}점
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    ))}
+
+                    {draft && (
+                      <button className="btn-secondary" style={{ marginTop: 6, padding: '3px 10px', fontSize: 11 }} onClick={() => addOption(it.key)}>+ 선택지</button>
+                    )}
+                    {draft && it.key === 'certification' && (
+                      <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 8, lineHeight: 1.5 }}>
+                        ※ 자격증 세부 가산(동종/타직무 적용·추가 보유 보너스)은 코드에서 처리됩니다.
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {draft && (
+                <button className="btn-secondary" style={{ marginTop: 12, padding: '5px 12px', fontSize: 12 }} onClick={() => addItem(cat.key)}>+ 항목 추가</button>
+              )}
             </div>
           ))}
+
+          {draft && (
+            <button className="btn-primary" style={{ marginTop: 4 }} onClick={addCategory}>+ 카테고리 추가</button>
+          )}
         </div>
       )}
 

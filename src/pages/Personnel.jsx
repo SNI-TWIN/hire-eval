@@ -82,6 +82,8 @@ export default function Personnel() {
                   const cur   = calcCurrentCareer(e.careerYears, e.careerMonths, e.careerInputDate)
                   const yrs   = totalCareerYears(cur.years, cur.months)
                   const level = getCareerLevel(e.jobType, yrs, params.careerLevels)
+                  // 재계산(경력 자동증가 반영) 우선, 실패 시 평가 시점 스냅샷으로 폴백
+                  const levelLabel = level?.label ?? e.careerLevel ?? '—'
                   const jts   = JT_TAG_STYLE[e.jobType] || {}
                   return (
                     <tr key={e.id}>
@@ -94,7 +96,7 @@ export default function Personnel() {
                       </td>
                       <td>
                         <span style={{ fontSize: 13, fontWeight: 600, color: JT_COLOR[e.jobType] || '#0d9488' }}>
-                          {level?.label ?? '—'}
+                          {levelLabel}
                         </span>
                       </td>
                       <td style={{ fontSize: 13 }}>

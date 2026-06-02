@@ -26,6 +26,7 @@ export default function Candidates({ candidates }) {
         careerYears: c.careerYears,
         careerMonths: c.careerMonths,
         careerInputDate: c.careerInputDate,
+        careerLevel: c.careerLevel ?? null,   // 평가 시점 경력등급 스냅샷 (재계산 실패 시 폴백)
         currentSalary: parseInt(confirmSalary),
         memo: `채용확정 (${c.grade}등급 · ${c.total}점)`,
         addedDate: new Date().toLocaleDateString('ko-KR'),
