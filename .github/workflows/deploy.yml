@@ -13,6 +13,10 @@ concurrency:
   group: 'pages'
   cancel-in-progress: true
 
+# 모든 JS 액션을 Node 24 런타임에서 실행 → Node 20 종료 경고 제거
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   deploy:
     environment:
@@ -20,11 +24,11 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: 22 # 노란색 경고를 지우기 위해 최신 버전으로 지정
-      - run: npm ci # 옛날 캐시를 무시하고 완벽하게 새로 설치하는 명령어입니다.
+          node-version: 22 # 빌드용 Node (LTS). 24로 올려도 무방
+      - run: npm ci
       - run: npm run build
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
