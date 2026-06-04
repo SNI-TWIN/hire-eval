@@ -48,6 +48,13 @@ export default function Personnel() {
     await updateDoc(doc(db, 'employees', String(id)), { currentSalary: parseInt(val) || 0 })
   }
 
+  const handleJobTypeChange = async (id, val) => {
+    await updateDoc(doc(db, 'employees', String(id)), { jobType: val })
+  }
+
+  // 재계산 시 경력등급을 산출할 수 있는 직무유형 목록 (드롭다운 = 재계산과 항상 일치)
+  const jobTypeKeys = Object.keys(params.careerLevels || {})
+
   const handleDelete = async (id) => {
     if (!confirm('삭제하시겠습니까?')) return
     await deleteDoc(doc(db, 'employees', String(id)))
@@ -89,7 +96,21 @@ export default function Personnel() {
                     <tr key={e.id}>
                       <td style={{ fontWeight: 600 }}>{e.name}</td>
                       <td>{e.part}</td>
-                      <td><span style={{ ...jts, padding: '3px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600 }}>{e.jobType}</span></td>
+                      <td>
+                        <select
+                          value={jobTypeKeys.includes(e.jobType) ? e.jobType : ''}
+                          onChange={ev => handleJobTypeChange(e.id, ev.target.value)}
+                          style={{
+                            ...jts, padding: '3px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600,
+                            border: jobTypeKeys.includes(e.jobType) ? '1px solid transparent' : '1px solid #fca5a5',
+                            fontFamily: 'inherit', cursor: 'pointer', outline: 'none',
+                            color: jobTypeKeys.includes(e.jobType) ? (jts.color || '#1a202c') : '#b91c1c',
+                          }}
+                        >
+                          <option value="" disabled>직무 선택</option>
+                          {jobTypeKeys.map(jt => <option key={jt} value={jt}>{jt}</option>)}
+                        </select>
+                      </td>
                       <td style={{ fontSize: 13 }}>
                         {formatCareer(cur.years, cur.months)}
                         <div style={{ fontSize: 11, color: '#94a3b8' }}>입력: {formatCareer(e.careerYears, e.careerMonths)}</div>

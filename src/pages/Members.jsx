@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { db, firebaseConfig } from '../firebase'
+import { db, auth, firebaseConfig } from '../firebase'
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore'
 import { initializeApp, deleteApp } from 'firebase/app'
-import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth'
+import { getAuth, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail } from 'firebase/auth'
 
 // 보조 Firebase 앱으로 계정을 만들어, 현재 관리자 로그인 세션이 풀리지 않게 함
 async function createAuthAccount(email, pw) {
@@ -42,16 +42,16 @@ export default function Members() {
     const email = form.email.trim().toLowerCase()
     if (!email) return setMsg({ ok: false, text: '이메일을 입력하세요.' })
     if (!form.isAdmin && !form.part) return setMsg({ ok: false, text: '파트를 선택하거나 관리자로 지정하세요.' })
+    if (!form.pw) return setMsg({ ok: false, text: '초기 비밀번호를 입력하세요. (6자 이상)' })
+    if (form.pw.length < 6) return setMsg({ ok: false, text: '비밀번호는 6자 이상이어야 합니다.' })
     setBusy(true); setMsg(null)
     try {
       let note = ''
-      if (form.pw) {
-        if (form.pw.length < 6) { setBusy(false); return setMsg({ ok: false, text: '비밀번호는 6자 이상이어야 합니다.' }) }
-        const res = await createAuthAccount(email, form.pw)
-        if (!res.ok && res.code === 'auth/email-already-in-use') note = ' (이미 가입된 계정 — 명단만 등록)'
-        else if (!res.ok) { setBusy(false); return setMsg({ ok: false, text: '계정 생성 실패: ' + res.message }) }
-      } else {
-        note = ' (비밀번호 미입력 — 로그인 계정은 콘솔에서 별도 생성 필요)'
+      const res = await createAuthAccount(email, form.pw)
+      if (!res.ok && res.code === 'auth/email-already-in-use') {
+        note = ' (이미 가입된 계정 — 명단만 갱신. 비밀번호는 재설정 메일로 변경하세요)'
+      } else if (!res.ok) {
+        setBusy(false); return setMsg({ ok: false, text: '계정 생성 실패: ' + res.message })
       }
       await setDoc(doc(db, 'users', email), {
         email,
@@ -69,6 +69,23 @@ export default function Members() {
     }
   }
 
+  // 비밀번호 재설정 메일 발송 — 사용자가 메일 링크로 직접 새 비밀번호 설정
+  const sendReset = async (m) => {
+    setBusy(true); setMsg(null)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    try {
+      await sendPasswordResetEmail(auth, m.email)
+      setMsg({ ok: true, text: `${m.email} 로 비밀번호 재설정 메일을 보냈습니다.` })
+    } catch (e) {
+      const text = e.code === 'auth/user-not-found'
+        ? `${m.email} 의 로그인 계정이 없습니다. 먼저 비밀번호와 함께 등록하세요.`
+        : '재설정 메일 발송 실패: ' + e.message
+      setMsg({ ok: false, text })
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const changePart  = (m, part) => updateDoc(doc(db, 'users', m.id), { part })
   const toggleAdmin = (m) => updateDoc(doc(db, 'users', m.id), { isAdmin: !m.isAdmin, part: !m.isAdmin ? null : m.part })
   const remove = (m) => {
@@ -79,7 +96,10 @@ export default function Members() {
   return (
     <div>
       <div className="page-title">사용자 관리</div>
-      <div className="page-desc">이메일로 사용자를 등록하고 파트를 배정합니다. 관리자로 지정하면 모든 파트를 볼 수 있습니다.</div>
+      <div className="page-desc">
+        이메일·초기 비밀번호로 사용자를 등록하면 바로 로그인할 수 있는 계정이 만들어집니다. 관리자로 지정하면 모든 파트를 볼 수 있습니다.
+        <br />비밀번호 변경은 목록의 <strong>비밀번호 재설정 메일</strong> 버튼으로 — 사용자가 메일 링크를 통해 직접 새 비밀번호를 설정합니다.
+      </div>
 
       {/* 등록 폼 */}
       <div className="card" style={{ marginBottom: 16 }}>
@@ -106,9 +126,9 @@ export default function Members() {
             </select>
           </div>
           <div>
-            <div className="info-label">초기 비밀번호 <span style={{ color: '#94a3b8', fontWeight: 400 }}>(6자 이상)</span></div>
+            <div className="info-label">초기 비밀번호 <span style={{ color: '#94a3b8', fontWeight: 400 }}>(6자 이상, 필수)</span></div>
             <input className="info-input" type="text" value={form.pw}
-              onChange={e => set('pw', e.target.value)} placeholder="계정 생성용 (비우면 콘솔에서 생성)" autoComplete="off" />
+              onChange={e => set('pw', e.target.value)} placeholder="로그인용 초기 비밀번호" autoComplete="off" />
           </div>
         </div>
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, cursor: 'pointer' }}>
@@ -172,8 +192,21 @@ export default function Members() {
                       </button>
                     </td>
                     <td>
-                      <button className="btn-danger" style={{ padding: '4px 10px', fontSize: 12 }}
-                        onClick={() => remove(m)}>삭제</button>
+                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                        <button
+                          style={{
+                            padding: '4px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                            border: '1px solid #cbd5e1', background: '#fff', color: '#475569', fontFamily: 'inherit',
+                          }}
+                          disabled={busy}
+                          onClick={() => sendReset(m)}
+                          title="해당 사용자에게 비밀번호 재설정 메일을 보냅니다"
+                        >
+                          비밀번호 재설정 메일
+                        </button>
+                        <button className="btn-danger" style={{ padding: '4px 10px', fontSize: 12 }}
+                          onClick={() => remove(m)}>삭제</button>
+                      </div>
                     </td>
                   </tr>
                 ))}
