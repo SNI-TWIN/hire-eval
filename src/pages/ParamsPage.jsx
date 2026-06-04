@@ -47,6 +47,17 @@ export default function ParamsPage() {
     })
   }
 
+  // 등급별 밴드 내 위치 — 화면은 0~100(%) 입력, 저장은 0~1
+  const updGradePos = (k, v) => {
+    setDraft(p => {
+      const next = JSON.parse(JSON.stringify(p))
+      next.gradePos = next.gradePos || {}
+      const pct = parseFloat(v)
+      next.gradePos[k] = isNaN(pct) ? 0 : Math.max(0, Math.min(100, pct)) / 100
+      return next
+    })
+  }
+
   // ── 면접배점 편집 (카테고리 / 항목 / 선택지) ──
   const clone  = p => JSON.parse(JSON.stringify(p))
   const genKey = prefix => `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`
@@ -265,24 +276,53 @@ export default function ParamsPage() {
 
       {/* 등급기준 탭 */}
       {tab === '등급기준' && (
-        <div className="card" style={{ maxWidth: 480 }}>
-          <div className="card-title">면접 등급 기준점수</div>
-          {[['S','최우수'],['A','우수'],['B','양호'],['C','보통']].map(([g, name]) => (
-            <div key={g} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-              <span className="grade-badge" style={{ ...GRADE_STYLE[g], minWidth: 36, textAlign: 'center' }}>{g}</span>
-              <span style={{ fontSize: 13, color: '#374151', flex: 1 }}>{name}</span>
-              <span style={{ fontSize: 13, color: '#64748b' }}>
-                {draft
-                  ? <input type="number" style={{ width: 56, border: '1px solid #e2e8f0', borderRadius: 4, padding: '3px 6px', fontSize: 13, textAlign: 'right', fontFamily: 'inherit' }}
-                      value={working.gradeThresholds[g]} onChange={e => updThreshold(g, e.target.value)} />
-                  : <strong style={{ color: '#1a202c' }}>{working.gradeThresholds[g]}</strong>
-                }
-                점 이상
-              </span>
+        <div style={{ display: 'grid', gap: 16, maxWidth: 480 }}>
+          <div className="card">
+            <div className="card-title">면접 등급 기준점수</div>
+            {[['S','최우수'],['A','우수'],['B','양호'],['C','보통']].map(([g, name]) => (
+              <div key={g} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                <span className="grade-badge" style={{ ...GRADE_STYLE[g], minWidth: 36, textAlign: 'center' }}>{g}</span>
+                <span style={{ fontSize: 13, color: '#374151', flex: 1 }}>{name}</span>
+                <span style={{ fontSize: 13, color: '#64748b' }}>
+                  {draft
+                    ? <input type="number" style={{ width: 56, border: '1px solid #e2e8f0', borderRadius: 4, padding: '3px 6px', fontSize: 13, textAlign: 'right', fontFamily: 'inherit' }}
+                        value={working.gradeThresholds[g]} onChange={e => updThreshold(g, e.target.value)} />
+                    : <strong style={{ color: '#1a202c' }}>{working.gradeThresholds[g]}</strong>
+                  }
+                  점 이상
+                </span>
+              </div>
+            ))}
+            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 8, paddingTop: 12, borderTop: '1px solid #f1f5f9' }}>
+              D등급 (채용불가): C 기준점수 미만
             </div>
-          ))}
-          <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 8, paddingTop: 12, borderTop: '1px solid #f1f5f9' }}>
-            D등급 (채용불가): C 기준점수 미만
+          </div>
+
+          {/* 등급별 연봉 밴드 내 위치 */}
+          <div className="card">
+            <div className="card-title">등급별 연봉 밴드 내 위치</div>
+            <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.7, marginBottom: 14 }}>
+              경력등급 연봉밴드(하한~상한) 안에서 면접등급이 놓일 위치입니다.<br />
+              <strong>0% = 하한(기준연봉)</strong>, <strong>100% = 상한 직전</strong>. 추천액 = 하한 + 밴드폭 × 위치%.
+            </div>
+            {[['S','최우수'],['A','우수'],['B','양호'],['C','보통']].map(([g, name]) => (
+              <div key={g} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                <span className="grade-badge" style={{ ...GRADE_STYLE[g], minWidth: 36, textAlign: 'center' }}>{g}</span>
+                <span style={{ fontSize: 13, color: '#374151', flex: 1 }}>{name}</span>
+                <span style={{ fontSize: 13, color: '#64748b' }}>
+                  {draft
+                    ? <input type="number" min="0" max="100" style={{ width: 56, border: '1px solid #e2e8f0', borderRadius: 4, padding: '3px 6px', fontSize: 13, textAlign: 'right', fontFamily: 'inherit' }}
+                        value={Math.round((working.gradePos?.[g] ?? 0) * 100)} onChange={e => updGradePos(g, e.target.value)} />
+                    : <strong style={{ color: '#1a202c' }}>{Math.round((working.gradePos?.[g] ?? 0) * 100)}</strong>
+                  }
+                  % 지점
+                </span>
+              </div>
+            ))}
+            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 8, paddingTop: 12, borderTop: '1px solid #f1f5f9', lineHeight: 1.7 }}>
+              ※ C를 0%로 두면 최저 추천이 기준연봉(하한)과 같아집니다.<br />
+              ※ 보통 S ≥ A ≥ B ≥ C 순서로 설정하세요. (상한은 다음 경력등급 시작가라 100%여도 그 직전까지만 추천됩니다)
+            </div>
           </div>
         </div>
       )}

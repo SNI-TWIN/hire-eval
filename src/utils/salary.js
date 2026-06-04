@@ -30,8 +30,8 @@ export function calcGrade(total, thresholds) {
 const GRADE_ORDER = ['C', 'B', 'A', 'S']
 // 최상위 경력등급은 다음 등급이 없으므로, 하한 대비 가상 상한 폭(+10%)
 const TOP_BAND_MARGIN = 0.10
-// 등급별 밴드 내 위치 기본값 (0 = 하한, 1 = 상한)
-const DEFAULT_GRADE_POS = { S: 0.80, A: 0.60, B: 0.40, C: 0.20 }
+// 등급별 밴드 내 위치 기본값 (0 = 하한, 1 = 상한 직전). C=하한, S=최상단
+const DEFAULT_GRADE_POS = { S: 1.0, A: 0.66, B: 0.33, C: 0 }
 // 추천액 반올림 단위(만원). 100으로 하면 좁은 밴드에서 등급이 같은 값으로 뭉개짐
 const ROUND_UNIT = 10
 
@@ -56,9 +56,9 @@ const ROUND_UNIT = 10
  */
 export function calcRecommendedSalaryDetail(floor, ceiling, grade, prevSalary = 0, gradePos) {
   const base = {
-    rec: 0, floor: floor || 0, ceiling: ceiling ?? null, top: floor || 0, band: 0,
+    rec: 0, rounded: 0, floor: floor || 0, ceiling: ceiling ?? null, top: floor || 0, band: 0,
     isTopBand: ceiling == null, basePos: 0, baseAmt: 0,
-    bumped: false, grade, appliedGrade: grade, appliedPos: 0,
+    bumped: false, grade, appliedGrade: grade, appliedPos: 0, capped: false,
     roundUnit: ROUND_UNIT, prevSalary,
   }
   if (grade === 'D' || !floor) return base
@@ -81,16 +81,20 @@ export function calcRecommendedSalaryDetail(floor, ceiling, grade, prevSalary = 
   }
   const appliedPos = pos[g] ?? 0
 
-  let rec = Math.round((floor + band * appliedPos) / ROUND_UNIT) * ROUND_UNIT
+  const rounded = Math.round((floor + band * appliedPos) / ROUND_UNIT) * ROUND_UNIT
+  let rec = rounded
 
   // 밴드 [하한, 상한) 보장
   if (rec < floor) rec = floor
   while (ceiling != null && rec >= ceiling) rec -= ROUND_UNIT
   if (rec < floor) rec = floor
 
+  // 반올림값이 상한 이상이라 아래로 깎였는지 (위치 100% 등에서 발생)
+  const capped = ceiling != null && rounded >= ceiling
+
   return {
-    ...base, rec, top, band, basePos, baseAmt,
-    bumped, appliedGrade: g, appliedPos,
+    ...base, rec, rounded, top, band, basePos, baseAmt,
+    bumped, appliedGrade: g, appliedPos, capped,
   }
 }
 

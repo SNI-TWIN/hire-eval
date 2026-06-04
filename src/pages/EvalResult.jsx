@@ -196,7 +196,8 @@ export default function EvalResult({ result: r, onBack, onReset }) {
                   </div>
                 )}
                 <div style={{ marginTop: 4, paddingTop: 6, borderTop: '1px dashed #e2e8f0' }}>
-                  {d.bumped ? '④' : '③'} {d.roundUnit}만원 단위 반올림 →{' '}
+                  {d.bumped ? '④' : '③'} {d.roundUnit}만원 단위 반올림
+                  {d.capped && <span> 후 상한({won(d.ceiling)}) 미만 보정</span>} →{' '}
                   <strong style={{ color: '#1a202c' }}>{r.recSalary.toLocaleString()}만원</strong>
                 </div>
               </div>
