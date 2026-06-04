@@ -158,12 +158,69 @@ export default function EvalResult({ result: r, onBack, onReset }) {
               {r.recSalary.toLocaleString()} 만원
             </div>
           )}
-          <div style={{ fontSize: 13, color: '#64748b', marginBottom: 20 }}>
+          <div style={{ fontSize: 13, color: '#64748b', marginBottom: 16 }}>
             경력등급: <strong style={{ color: '#1a202c' }}>{r.careerLevel}</strong>
             {r.prevSalary > 0 && (
               <span style={{ marginLeft: 12 }}>기존연봉: <strong>{r.prevSalary.toLocaleString()}만원</strong></span>
             )}
           </div>
+
+          {/* 추천 연봉 계산 근거 — 왜 이 금액인지 단계별로 표시 */}
+          {r.grade !== 'D' && r.recDetail && (() => {
+            const d = r.recDetail
+            const pct = (v) => `${Math.round(v * 100)}%`
+            const won = (v) => `${Math.round(v).toLocaleString()}만원`
+            return (
+              <div style={{
+                background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8,
+                padding: '12px 14px', marginBottom: 20, fontSize: 12, color: '#475569', lineHeight: 1.85,
+              }}>
+                <div style={{ fontWeight: 700, color: '#334155', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <CircleDot size={12} /> 추천 연봉 계산 근거
+                </div>
+                <div>
+                  ① 경력등급 <strong style={{ color: '#1a202c' }}>{r.careerLevel}</strong> 연봉밴드:{' '}
+                  <strong>{won(d.floor)}</strong> ~ <strong>{won(d.top)}</strong>
+                  {d.isTopBand && <span style={{ color: '#94a3b8' }}> (최상위 등급 — 상한 가상 +10%)</span>}
+                  {' '}<span style={{ color: '#94a3b8' }}>· 밴드폭 {won(d.band)}</span>
+                </div>
+                <div>
+                  ② 면접등급 <strong style={{ color: '#1a202c' }}>{r.grade}</strong> 밴드 내 위치:{' '}
+                  <strong>{pct(d.basePos)}</strong>
+                  {' '}→ {won(d.floor)} + {won(d.band)} × {pct(d.basePos)} = <strong>{won(d.baseAmt)}</strong>
+                </div>
+                {d.bumped && (
+                  <div style={{ color: '#0b7a70' }}>
+                    ③ 기존연봉({r.prevSalary.toLocaleString()}만원)이 더 높아 한 등급 상향{' '}
+                    (<strong>{r.grade} → {d.appliedGrade}</strong>, 위치 {pct(d.appliedPos)})
+                  </div>
+                )}
+                <div style={{ marginTop: 4, paddingTop: 6, borderTop: '1px dashed #e2e8f0' }}>
+                  {d.bumped ? '④' : '③'} {d.roundUnit}만원 단위 반올림 →{' '}
+                  <strong style={{ color: '#1a202c' }}>{r.recSalary.toLocaleString()}만원</strong>
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* 채용 불가(D) 근거 — 연봉 산정이 아니라 기준 미달임을 설명 */}
+          {r.grade === 'D' && (() => {
+            const cMin = params.gradeThresholds?.C ?? 55
+            return (
+              <div style={{
+                background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8,
+                padding: '12px 14px', marginBottom: 20, fontSize: 12, color: '#9b1c1c', lineHeight: 1.85,
+              }}>
+                <div style={{ fontWeight: 700, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <CircleDot size={12} /> 채용 불가 판정 근거
+                </div>
+                <div>
+                  종합점수 <strong>{r.total}점</strong> &lt; 채용 가능 최저 기준{' '}
+                  <strong>{cMin}점 (C등급)</strong> → 연봉 산정 제외 (채용 불가)
+                </div>
+              </div>
+            )
+          })()}
           {/* 카테고리별 소계 바 */}
           {schema.map(cat => {
             const score = r.catScores[cat.key] ?? 0

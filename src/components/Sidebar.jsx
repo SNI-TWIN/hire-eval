@@ -4,9 +4,9 @@ import { useAuth } from '../context/AuthContext'
 const PUBLIC_MENUS = [
   { id: 'eval',       Icon: ClipboardList, label: '채용평가' },
   { id: 'candidates', Icon: UserCheck,     label: '채용 후보 목록', badge: true },
+  { id: 'personnel',  Icon: Users,         label: '인원 현황' },
 ]
 const ADMIN_MENUS = [
-  { id: 'personnel', Icon: Users,     label: '인원 현황' },
   { id: 'charts',    Icon: BarChart2, label: '차트 분석' },
   { id: 'to',        Icon: Target,    label: 'T/O 현황' },
   { id: 'members',   Icon: UserCog,   label: '사용자 관리' },

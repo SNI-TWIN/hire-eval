@@ -18,7 +18,7 @@ import ParamsPage   from './pages/ParamsPage'
 import Members      from './pages/Members'
 import OrgParts     from './pages/OrgParts'
 
-const ADMIN_PAGES = ['personnel', 'charts', 'to', 'params', 'members', 'orgparts']
+const ADMIN_PAGES = ['charts', 'to', 'params', 'members', 'orgparts']
 
 export default function App() {
   const { loading, user, hasAccess, isAdmin, part, logout } = useAuth()

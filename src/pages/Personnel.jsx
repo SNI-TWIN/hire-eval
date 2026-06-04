@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { db } from '../firebase'
-import { collection, onSnapshot, query, orderBy, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore'
+import { collection, onSnapshot, query, where, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore'
 import { useAuth } from '../context/AuthContext'
 import { calcCurrentCareer, formatCareer, totalCareerYears } from '../utils/career'
 import { useParams } from '../context/ParamsContext'
@@ -9,19 +9,27 @@ import { JT_TAG_STYLE, JT_COLOR } from '../utils/constants'
 import { exportPersonnelCSV } from '../utils/excel'
 
 export default function Personnel() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, part } = useAuth()
   const { params }  = useParams()
   const [employees, setEmployees] = useState([])
   const [showAdd, setShowAdd]     = useState(false)
   const [form, setForm]           = useState({ name: '', part: '', jobType: '현장주간', careerYears: '', careerMonths: '', currentSalary: '', memo: '' })
   const [saving, setSaving]       = useState(false)
 
+  // 관리자는 전체, 일반 사용자는 자기 파트만 (서버 규칙과 동일하게 클라이언트에서도 필터)
   useEffect(() => {
-    const q = query(collection(db, 'employees'), orderBy('id', 'desc'))
-    return onSnapshot(q, snap => setEmployees(snap.docs.map(d => d.data())))
-  }, [])
+    if (!isAdmin && !part) return   // 파트 미배정: 구독 안 함 (빈 목록 유지)
+    const ref = isAdmin
+      ? collection(db, 'employees')
+      : query(collection(db, 'employees'), where('part', '==', part))
+    return onSnapshot(ref, snap => {
+      const rows = snap.docs.map(d => d.data())
+      rows.sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0))
+      setEmployees(rows)
+    })
+  }, [isAdmin, part])
 
-  if (!isAdmin) return <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>관리자 로그인이 필요합니다.</div>
+  if (!isAdmin && !part) return <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>배정된 파트가 없어 조회할 인원이 없습니다.</div>
 
   const handleAdd = async () => {
     if (!form.name.trim()) return
@@ -63,11 +71,15 @@ export default function Personnel() {
   return (
     <div>
       <div className="page-title">인원 현황</div>
-      <div className="page-desc">기존 재직자 및 채용 확정자의 경력과 현재 연봉을 관리합니다. 경력은 입력 시점 기준 자동 증가합니다.</div>
+      <div className="page-desc">
+        {isAdmin
+          ? '기존 재직자 및 채용 확정자의 경력과 현재 연봉을 관리합니다. 경력은 입력 시점 기준 자동 증가합니다.'
+          : `${part} 파트 재직자 현황입니다. 경력은 입력 시점 기준 자동 증가합니다. (조회 전용)`}
+      </div>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 12 }}>
         <button className="btn-icon" onClick={() => exportPersonnelCSV(employees)}>📥 CSV 내보내기</button>
-        <button className="btn-primary" onClick={() => setShowAdd(true)}>+ 직원 추가</button>
+        {isAdmin && <button className="btn-primary" onClick={() => setShowAdd(true)}>+ 직원 추가</button>}
       </div>
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -97,19 +109,25 @@ export default function Personnel() {
                       <td style={{ fontWeight: 600 }}>{e.name}</td>
                       <td>{e.part}</td>
                       <td>
-                        <select
-                          value={jobTypeKeys.includes(e.jobType) ? e.jobType : ''}
-                          onChange={ev => handleJobTypeChange(e.id, ev.target.value)}
-                          style={{
-                            ...jts, padding: '3px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600,
-                            border: jobTypeKeys.includes(e.jobType) ? '1px solid transparent' : '1px solid #fca5a5',
-                            fontFamily: 'inherit', cursor: 'pointer', outline: 'none',
-                            color: jobTypeKeys.includes(e.jobType) ? (jts.color || '#1a202c') : '#b91c1c',
-                          }}
-                        >
-                          <option value="" disabled>직무 선택</option>
-                          {jobTypeKeys.map(jt => <option key={jt} value={jt}>{jt}</option>)}
-                        </select>
+                        {isAdmin ? (
+                          <select
+                            value={jobTypeKeys.includes(e.jobType) ? e.jobType : ''}
+                            onChange={ev => handleJobTypeChange(e.id, ev.target.value)}
+                            style={{
+                              ...jts, padding: '3px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600,
+                              border: jobTypeKeys.includes(e.jobType) ? '1px solid transparent' : '1px solid #fca5a5',
+                              fontFamily: 'inherit', cursor: 'pointer', outline: 'none',
+                              color: jobTypeKeys.includes(e.jobType) ? (jts.color || '#1a202c') : '#b91c1c',
+                            }}
+                          >
+                            <option value="" disabled>직무 선택</option>
+                            {jobTypeKeys.map(jt => <option key={jt} value={jt}>{jt}</option>)}
+                          </select>
+                        ) : (
+                          <span style={{ ...jts, padding: '3px 10px', borderRadius: 10, fontSize: 11, fontWeight: 600 }}>
+                            {e.jobType}
+                          </span>
+                        )}
                       </td>
                       <td style={{ fontSize: 13 }}>
                         {formatCareer(cur.years, cur.months)}
@@ -124,24 +142,32 @@ export default function Personnel() {
                         {level ? `${level.salary.toLocaleString()}만원` : '—'}
                       </td>
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <input
-                            type="number" step="100"
-                            defaultValue={e.currentSalary || ''}
-                            onBlur={ev => handleSalaryChange(e.id, ev.target.value)}
-                            style={{
-                              width: 80, height: 30, border: '1.5px solid #e2e8f0',
-                              borderRadius: 6, padding: '0 8px', fontSize: 13,
-                              fontFamily: 'inherit', textAlign: 'right', outline: 'none',
-                            }}
-                            placeholder="—"
-                          />
-                          <span style={{ fontSize: 11, color: '#94a3b8' }}>만원</span>
-                        </div>
+                        {isAdmin ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <input
+                              type="number" step="100"
+                              defaultValue={e.currentSalary || ''}
+                              onBlur={ev => handleSalaryChange(e.id, ev.target.value)}
+                              style={{
+                                width: 80, height: 30, border: '1.5px solid #e2e8f0',
+                                borderRadius: 6, padding: '0 8px', fontSize: 13,
+                                fontFamily: 'inherit', textAlign: 'right', outline: 'none',
+                              }}
+                              placeholder="—"
+                            />
+                            <span style={{ fontSize: 11, color: '#94a3b8' }}>만원</span>
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: 13 }}>
+                            {e.currentSalary ? `${e.currentSalary.toLocaleString()}만원` : '—'}
+                          </span>
+                        )}
                       </td>
                       <td style={{ fontSize: 12, color: '#64748b', maxWidth: 120 }}>{e.memo}</td>
                       <td>
-                        <button className="btn-danger" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => handleDelete(e.id)}>삭제</button>
+                        {isAdmin && (
+                          <button className="btn-danger" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => handleDelete(e.id)}>삭제</button>
+                        )}
                       </td>
                     </tr>
                   )

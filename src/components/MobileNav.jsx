@@ -7,7 +7,7 @@ export default function MobileNav({ page, onPage, candidateCount }) {
   const items = [
     { id: 'eval',       Icon: ClipboardList, label: '채용평가' },
     { id: 'candidates', Icon: UserCheck,     label: '채용 후보 목록' },
-    { id: 'personnel',  Icon: Users,         label: '인원 현황', admin: true },
+    { id: 'personnel',  Icon: Users,         label: '인원 현황' },
     { id: 'charts',     Icon: BarChart2,     label: '차트 분석',  admin: true },
     { id: 'to',         Icon: Target,        label: 'T/O 현황',  admin: true },
   ]

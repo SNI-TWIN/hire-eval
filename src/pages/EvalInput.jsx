@@ -5,7 +5,7 @@ import { collection, onSnapshot } from 'firebase/firestore'
 import { useAuth } from '../context/AuthContext'
 import { useParams } from '../context/ParamsContext'
 import { calcCurrentCareer, totalCareerYears, getCareerRange } from '../utils/career'
-import { calcGrade, calcRecommendedSalary } from '../utils/salary'
+import { calcGrade, calcRecommendedSalaryDetail } from '../utils/salary'
 import { JT_COLOR, JT_TAG_STYLE } from '../utils/constants'
 import { buildEvalSchema, circledNum } from '../utils/schema'
 import EvalResult from './EvalResult'
@@ -102,7 +102,8 @@ export default function EvalInput() {
     const level     = range?.level ?? null
     const total     = calcTotal(selections)
     const grade     = calcGrade(total, params.gradeThresholds)
-    const recSalary = calcRecommendedSalary(range?.floor ?? 0, range?.ceiling ?? null, grade, parseInt(prevSalary) || 0, params.gradePos)
+    const recDetail = calcRecommendedSalaryDetail(range?.floor ?? 0, range?.ceiling ?? null, grade, parseInt(prevSalary) || 0, params.gradePos)
+    const recSalary = recDetail.rec
 
     const raw = {}
     Object.entries(selections).forEach(([item, opt]) => {
@@ -134,6 +135,7 @@ export default function EvalInput() {
       total,
       grade,
       recSalary,
+      recDetail,
       date: new Date().toLocaleDateString('ko-KR'),
     })
   }
