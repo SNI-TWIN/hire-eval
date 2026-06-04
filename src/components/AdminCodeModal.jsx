@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Eye, EyeOff } from 'lucide-react'
 import { db } from '../firebase'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { useAuth } from '../context/AuthContext'
@@ -21,6 +22,7 @@ export default function AdminCodeModal({ onClose, onUnlock, change = false }) {
   const [confirm, setConfirm] = useState('')
   const [error, setError]   = useState('')
   const [busy, setBusy]     = useState(false)
+  const [show, setShow]     = useState(false)   // 코드 표시/숨김 토글
 
   useEffect(() => {
     getDoc(doc(db, 'config', 'admin'))
@@ -76,12 +78,28 @@ export default function AdminCodeModal({ onClose, onUnlock, change = false }) {
     : '관리자 페이지에 들어가려면 6자리 코드를 입력하세요.'
 
   const numInput = (val, set, ph) => (
-    <input
-      className="info-input" inputMode="numeric" maxLength={6} value={val}
-      onChange={e => set(e.target.value.replace(/\D/g, '').slice(0, 6))}
-      placeholder={ph} autoComplete="off"
-      style={{ letterSpacing: 4, fontSize: 18, textAlign: 'center' }}
-    />
+    <div style={{ position: 'relative' }}>
+      <input
+        className="info-input" inputMode="numeric" maxLength={6} value={val}
+        type={show ? 'text' : 'password'}
+        onChange={e => set(e.target.value.replace(/\D/g, '').slice(0, 6))}
+        placeholder={ph} autoComplete="new-password"
+        style={{ letterSpacing: 4, fontSize: 18, textAlign: 'center', paddingRight: 40 }}
+      />
+      <button
+        type="button"
+        onClick={() => setShow(s => !s)}
+        aria-label={show ? '코드 숨기기' : '코드 보기'}
+        title={show ? '숨기기' : '보기'}
+        style={{
+          position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+          display: 'flex', alignItems: 'center', padding: 4,
+          background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8',
+        }}
+      >
+        {show ? <EyeOff size={18} /> : <Eye size={18} />}
+      </button>
+    </div>
   )
 
   return (
