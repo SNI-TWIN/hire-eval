@@ -25,7 +25,7 @@ const CAT_ICONS = {
 }
 const catIcon = key => CAT_ICONS[key] ?? CircleDot
 
-export default function EvalResult({ result: r, onBack, onReset }) {
+export default function EvalResult({ result: r, onBack, onReset, viewMode = false }) {
   const { params }          = useParams()
   const { user, isAdmin }   = useAuth()
   const [saved, setSaved]   = useState(false)
@@ -90,8 +90,12 @@ export default function EvalResult({ result: r, onBack, onReset }) {
 
   return (
     <div>
-      <div className="page-title">평가 결과</div>
-      <div className="page-desc">입력 정보를 기반으로 산출된 종합 점수와 적정 연봉입니다.</div>
+      <div className="page-title">{viewMode ? '평가 상세' : '평가 결과'}</div>
+      <div className="page-desc">
+        {viewMode
+          ? '저장된 채용 후보의 평가 상세 내역입니다.'
+          : '입력 정보를 기반으로 산출된 종합 점수와 적정 연봉입니다.'}
+      </div>
 
       {/* 지원자 정보 바 */}
       <div style={{
@@ -293,36 +297,47 @@ export default function EvalResult({ result: r, onBack, onReset }) {
 
       {/* 액션 버튼 */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-        {!saved ? (
+        {viewMode ? (
           <>
-            <button className="btn-primary" onClick={handleSaveCandidate} disabled={saving}>
-              채용 후보 저장
+            <button className="btn-secondary" onClick={onBack}>← 목록으로</button>
+            <button className="btn-icon" onClick={() => exportEvalSheet(r, params)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Download size={14} /> 엑셀 다운로드
             </button>
-            {isAdmin && (
-              <button
-                className="btn-primary"
-                style={{ background: 'linear-gradient(135deg,#7c3aed,#6d28d9)' }}
-                onClick={handleConfirm}
-                disabled={saving || r.grade === 'D'}
-              >
-                채용 확정 저장
-              </button>
-            )}
           </>
         ) : (
-          <div style={{ fontSize: 13, color: '#0b7a70', fontWeight: 500, background: '#e6faf7', padding: '8px 16px', borderRadius: 8 }}>
-            저장 완료
-          </div>
-        )}
-        <button className="btn-icon" onClick={() => exportEvalSheet(r, params)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Download size={14} /> 엑셀 다운로드
-        </button>
-        <button className="btn-secondary" onClick={onBack}>← 평가 입력으로</button>
-        <button className="btn-danger"    onClick={onReset}>초기화 후 새 입력</button>
-        {toast && (
-          <span style={{ fontSize: 13, color: toast.ok ? '#0b7a70' : '#e53e3e', fontWeight: 500 }}>
-            {toast.msg}
-          </span>
+          <>
+            {!saved ? (
+              <>
+                <button className="btn-primary" onClick={handleSaveCandidate} disabled={saving}>
+                  채용 후보 저장
+                </button>
+                {isAdmin && (
+                  <button
+                    className="btn-primary"
+                    style={{ background: 'linear-gradient(135deg,#7c3aed,#6d28d9)' }}
+                    onClick={handleConfirm}
+                    disabled={saving || r.grade === 'D'}
+                  >
+                    채용 확정 저장
+                  </button>
+                )}
+              </>
+            ) : (
+              <div style={{ fontSize: 13, color: '#0b7a70', fontWeight: 500, background: '#e6faf7', padding: '8px 16px', borderRadius: 8 }}>
+                저장 완료
+              </div>
+            )}
+            <button className="btn-icon" onClick={() => exportEvalSheet(r, params)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Download size={14} /> 엑셀 다운로드
+            </button>
+            <button className="btn-secondary" onClick={onBack}>← 평가 입력으로</button>
+            <button className="btn-danger"    onClick={onReset}>초기화 후 새 입력</button>
+            {toast && (
+              <span style={{ fontSize: 13, color: toast.ok ? '#0b7a70' : '#e53e3e', fontWeight: 500 }}>
+                {toast.msg}
+              </span>
+            )}
+          </>
         )}
       </div>
     </div>

@@ -4,12 +4,14 @@ import { doc, setDoc, deleteDoc } from 'firebase/firestore'
 import { useAuth } from '../context/AuthContext'
 import { GRADE_STYLE, JT_TAG_STYLE, JT_COLOR } from '../utils/constants'
 import { formatCareer, calcCurrentCareer } from '../utils/career'
+import EvalResult from './EvalResult'
 
 export default function Candidates({ candidates }) {
   const { isAdmin } = useAuth()
   const [confirmId, setConfirmId]         = useState(null)
   const [confirmSalary, setConfirmSalary] = useState('')
   const [saving, setSaving]               = useState(false)
+  const [viewing, setViewing]             = useState(null)   // 상세보기 중인 후보
 
   // 채용 확정 — 인원 현황(employees)으로 이관 후 후보 목록에서 제거 (관리자 전용)
   const handleConfirm = async () => {
@@ -42,6 +44,11 @@ export default function Candidates({ candidates }) {
   const handleDelete = async (id) => {
     if (!confirm('이 이력을 삭제하시겠습니까?')) return
     await deleteDoc(doc(db, 'candidates', String(id)))
+  }
+
+  // 상세보기 — 저장된 평가 결과를 그대로 다시 표시 (읽기 전용)
+  if (viewing) {
+    return <EvalResult result={viewing} viewMode onBack={() => setViewing(null)} />
   }
 
   return (
@@ -91,6 +98,16 @@ export default function Candidates({ candidates }) {
                       <td style={{ fontSize: 12, color: '#94a3b8' }}>{c.date}</td>
                       <td>
                         <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                          <button
+                            style={{
+                              padding: '4px 10px', background: '#f1f5f9', border: 'none',
+                              borderRadius: 6, color: '#475569', fontSize: 12, cursor: 'pointer',
+                              fontFamily: 'inherit', fontWeight: 600,
+                            }}
+                            onClick={() => setViewing(c)}
+                          >
+                            상세정보
+                          </button>
                           {isAdmin && (
                             <button
                               style={{

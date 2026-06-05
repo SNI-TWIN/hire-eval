@@ -88,9 +88,23 @@ export default function Members() {
 
   const changePart  = (m, part) => updateDoc(doc(db, 'users', m.id), { part })
   const toggleAdmin = (m) => updateDoc(doc(db, 'users', m.id), { isAdmin: !m.isAdmin, part: !m.isAdmin ? null : m.part })
-  const remove = (m) => {
-    if (confirm(`${m.email} 명단을 삭제할까요?\n(로그인 계정 자체는 Firebase 콘솔에서 별도로 삭제하세요)`))
-      deleteDoc(doc(db, 'users', m.id))
+
+  // 인증 계정 삭제는 보안상 클라이언트에서 불가 → Firestore 명단만 제거하고 콘솔 링크 안내
+  const CONSOLE_AUTH_URL = `https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/users`
+  const remove = async (m) => {
+    const ok = confirm(
+      `${m.email} 사용자를 삭제할까요?\n\n` +
+      `• 앱 명단(권한)에서 즉시 제거되어 포털 접근이 차단됩니다.\n` +
+      `• 로그인 계정 자체는 보안상 사이트에서 지울 수 없어, Firebase 콘솔에서 별도로 삭제해야 완전히 제거됩니다.`
+    )
+    if (!ok) return
+    await deleteDoc(doc(db, 'users', m.id))
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    setMsg({
+      ok: true,
+      text: `${m.email} 을(를) 앱 명단에서 삭제했습니다. 로그인 자체를 완전히 막으려면 Firebase 콘솔 → Authentication 에서 이 계정도 삭제하세요.`,
+      href: CONSOLE_AUTH_URL,
+    })
   }
 
   return (
@@ -99,6 +113,7 @@ export default function Members() {
       <div className="page-desc">
         이메일·초기 비밀번호로 사용자를 등록하면 바로 로그인할 수 있는 계정이 만들어집니다. 관리자로 지정하면 모든 파트를 볼 수 있습니다.
         <br />비밀번호 변경은 목록의 <strong>비밀번호 재설정 메일</strong> 버튼으로 — 사용자가 메일 링크를 통해 직접 새 비밀번호를 설정합니다.
+        <br /><strong>삭제</strong>는 앱 명단(권한)만 제거합니다. 로그인 계정 자체는 보안상 사이트에서 지울 수 없어, 삭제 후 안내되는 <strong>Firebase 콘솔</strong>에서 인증 계정도 지워야 완전히 제거됩니다.
       </div>
 
       {/* 등록 폼 */}
@@ -144,6 +159,15 @@ export default function Members() {
             background: msg.ok ? '#e6faf7' : '#fef2f2',
           }}>
             {msg.text}
+            {msg.href && (
+              <>
+                {' '}
+                <a href={msg.href} target="_blank" rel="noopener noreferrer"
+                  style={{ color: '#0b7a70', fontWeight: 700, textDecoration: 'underline' }}>
+                  Firebase 콘솔에서 계정 삭제 →
+                </a>
+              </>
+            )}
           </div>
         )}
         {parts.length === 0 && (
