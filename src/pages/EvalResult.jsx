@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Wrench, Clock, ArrowLeftRight, Lightbulb, CircleDot, Download } from 'lucide-react'
 import { db } from '../firebase'
-import { doc, setDoc } from 'firebase/firestore'
+import { doc, setDoc, updateDoc } from 'firebase/firestore'
 import { useAuth } from '../context/AuthContext'
+import { useDemo } from '../context/DemoContext'
 import { GRADE_STYLE, GRADE_NAMES, JT_COLOR, JT_TAG_STYLE } from '../utils/constants'
 import { buildEvalSchema } from '../utils/schema'
 import { useParams } from '../context/ParamsContext'
@@ -28,13 +29,29 @@ const catIcon = key => CAT_ICONS[key] ?? CircleDot
 export default function EvalResult({ result: r, onBack, onReset, viewMode = false }) {
   const { params }          = useParams()
   const { user, isAdmin }   = useAuth()
+  const { demoMode, maskWon } = useDemo()
   const [saved, setSaved]   = useState(false)
   const [saving, setSaving] = useState(false)
   const [toast, setToast]   = useState('')
+  // 평가자가 종합 판단으로 정하는 추천 연봉 (기본값은 AI 추천연봉)
+  const [evalSalary, setEvalSalary] = useState(
+    r.evalSalary != null ? String(r.evalSalary) : (r.grade === 'D' ? '' : String(r.recSalary))
+  )
 
   const showToast = (msg, ok = true) => {
     setToast({ msg, ok })
     setTimeout(() => setToast(''), 2500)
+  }
+
+  // 상세보기(저장된 후보)에서 평가자 추천 연봉 수정 시 즉시 저장
+  const handleEvalSalaryBlur = async () => {
+    if (!viewMode) return
+    try {
+      await updateDoc(doc(db, 'candidates', String(r.id)), { evalSalary: parseInt(evalSalary) || 0 })
+      showToast('평가자 추천 연봉을 저장했습니다.')
+    } catch (e) {
+      showToast('저장 실패: ' + e.message, false)
+    }
   }
 
   // 채용 후보로 저장 — candidates 컬렉션에 보관
@@ -43,7 +60,9 @@ export default function EvalResult({ result: r, onBack, onReset, viewMode = fals
     setSaving(true)
     try {
       await setDoc(doc(db, 'candidates', String(r.id)), {
-        ...r, status: 'candidate', ownerUid: user?.uid || null, ownerEmail: user?.email || null,
+        ...r,
+        evalSalary: parseInt(evalSalary) || r.recSalary,
+        status: 'candidate', ownerUid: user?.uid || null, ownerEmail: user?.email || null,
       })
       setSaved(true)
       showToast('채용 후보로 저장되었습니다.')
@@ -68,7 +87,7 @@ export default function EvalResult({ result: r, onBack, onReset, viewMode = fals
         careerMonths: r.careerMonths,
         careerInputDate: r.careerInputDate,
         careerLevel: r.careerLevel ?? null,   // 평가 시점 경력등급 스냅샷 (재계산 실패 시 폴백)
-        currentSalary: r.recSalary,
+        currentSalary: parseInt(evalSalary) || r.recSalary,   // 평가자 추천 연봉을 현재연봉으로 이관
         memo: `채용확정 (${r.grade}등급 · ${r.total}점)`,
         addedDate: new Date().toLocaleDateString('ko-KR'),
       })
@@ -159,18 +178,60 @@ export default function EvalResult({ result: r, onBack, onReset, viewMode = fals
             <div style={{ fontSize: 22, fontWeight: 700, color: '#9b1c1c', marginBottom: 4 }}>채용 불가</div>
           ) : (
             <div style={{ fontSize: 30, fontWeight: 700, color: jtColor, marginBottom: 4, letterSpacing: '-0.5px' }}>
-              {r.recSalary.toLocaleString()} 만원
+              {maskWon(r.recSalary, r.id)} 만원
             </div>
           )}
           <div style={{ fontSize: 13, color: '#64748b', marginBottom: 16 }}>
             경력등급: <strong style={{ color: '#1a202c' }}>{r.careerLevel}</strong>
             {r.prevSalary > 0 && (
-              <span style={{ marginLeft: 12 }}>기존연봉: <strong>{r.prevSalary.toLocaleString()}만원</strong></span>
+              <span style={{ marginLeft: 12 }}>기존연봉: <strong>{maskWon(r.prevSalary, 'prev-' + r.id)}만원</strong></span>
             )}
           </div>
 
+          {/* 평가자 추천 연봉 — AI 추천을 참고해 평가자가 종합 판단으로 최종 결정 */}
+          {r.grade !== 'D' && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18,
+              padding: '12px 14px', background: '#f0fdfa', border: '1px solid #99e6d9',
+              borderRadius: 8, flexWrap: 'wrap',
+            }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#0b7a70' }}>평가자 추천 연봉</span>
+              {demoMode ? (
+                <span style={{ fontSize: 18, fontWeight: 700, color: '#0b7a70' }}>
+                  {maskWon(parseInt(evalSalary) || r.recSalary, 'eval-' + r.id)}
+                </span>
+              ) : (
+                <input
+                  type="number" step="100"
+                  value={evalSalary}
+                  onChange={e => setEvalSalary(e.target.value)}
+                  onBlur={handleEvalSalaryBlur}
+                  style={{
+                    width: 120, height: 34, border: '1.5px solid #5eead4', borderRadius: 6,
+                    padding: '0 10px', fontSize: 16, fontWeight: 700, textAlign: 'right',
+                    color: '#0b7a70', outline: 'none', fontFamily: 'inherit', background: '#fff',
+                  }}
+                />
+              )}
+              <span style={{ fontSize: 13, color: '#0b7a70' }}>만원</span>
+              <span style={{ fontSize: 11, color: '#5b9d92', marginLeft: 'auto' }}>
+                AI 추천을 참고해 평가자가 최종 판단{viewMode && !demoMode ? ' · 수정 시 자동 저장' : ''}
+              </span>
+            </div>
+          )}
+
+          {/* 시연 모드: 산출 근거에 실제 연봉밴드 금액이 노출되므로 숨김 */}
+          {demoMode && r.grade !== 'D' && (
+            <div style={{
+              background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: 8,
+              padding: '12px 14px', marginBottom: 20, fontSize: 12, color: '#94a3b8',
+            }}>
+              🔒 시연 모드에서는 연봉 산출 근거를 숨깁니다.
+            </div>
+          )}
+
           {/* 추천 연봉 계산 근거 — 왜 이 금액인지 단계별로 표시 */}
-          {r.grade !== 'D' && r.recDetail && (() => {
+          {!demoMode && r.grade !== 'D' && r.recDetail && (() => {
             const d = r.recDetail
             const pct = (v) => `${Math.round(v * 100)}%`
             const won = (v) => `${Math.round(v).toLocaleString()}만원`
@@ -303,6 +364,11 @@ export default function EvalResult({ result: r, onBack, onReset, viewMode = fals
             <button className="btn-icon" onClick={() => exportEvalSheet(r, params)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <Download size={14} /> 엑셀 다운로드
             </button>
+            {toast && (
+              <span style={{ fontSize: 13, color: toast.ok ? '#0b7a70' : '#e53e3e', fontWeight: 500 }}>
+                {toast.msg}
+              </span>
+            )}
           </>
         ) : (
           <>
