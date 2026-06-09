@@ -5,24 +5,17 @@ import { useAuth } from '../context/AuthContext'
 import { useDemo } from '../context/DemoContext'
 import { GRADE_STYLE, JT_TAG_STYLE, JT_COLOR } from '../utils/constants'
 import { formatCareer, calcCurrentCareer } from '../utils/career'
+import { useGrid } from '../utils/useGrid'
+import { GridTH } from '../components/GridHeader'
 import EvalResult from './EvalResult'
-
-// 목록 상단 열별 필터 컨트롤 공통 스타일
-const FILTER_INPUT = {
-  width: '100%', minWidth: 0, height: 28, boxSizing: 'border-box',
-  border: '1px solid #cbd5e1', borderRadius: 6, padding: '0 6px',
-  fontSize: 12, fontFamily: 'inherit', fontWeight: 400, color: '#334155',
-  background: '#fff', outline: 'none',
-}
 
 export default function Candidates({ candidates }) {
   const { isAdmin } = useAuth()
-  const { demoMode, maskWon } = useDemo()
+  const { demoMode, maskWon, shownSalary } = useDemo()
   const [confirmId, setConfirmId]         = useState(null)
   const [confirmSalary, setConfirmSalary] = useState('')
   const [saving, setSaving]               = useState(false)
   const [viewing, setViewing]             = useState(null)   // 상세보기 중인 후보
-  const [filters, setFilters]             = useState({ name: '', part: '', jobType: '', grade: '' })
 
   // 평가자 추천 연봉 기본값 — 미설정 후보는 AI 추천연봉을 사용
   const evalOf = (c) => (c.evalSalary != null ? c.evalSalary : c.recSalary)
@@ -31,13 +24,22 @@ export default function Candidates({ candidates }) {
     await updateDoc(doc(db, 'candidates', String(id)), { evalSalary: parseInt(val) || 0 })
   }
 
-  const distinct = (key) => [...new Set(candidates.map(key).filter(Boolean))].sort()
-  const filtered = candidates.filter(c =>
-    (!filters.name    || (c.name || '').includes(filters.name)) &&
-    (!filters.part    || c.part === filters.part) &&
-    (!filters.jobType || c.jobType === filters.jobType) &&
-    (!filters.grade   || c.grade === filters.grade)
-  )
+  // 정렬·필터 기준 (연봉은 화면에 보이는 값과 일치 → 시연모드에서 실제값 누수 없음)
+  const careerOf = c => calcCurrentCareer(c.careerYears, c.careerMonths, c.careerInputDate)
+  const columns = [
+    { key: 'name',    label: '이름',     get: c => c.name },
+    { key: 'part',    label: '파트',     get: c => c.part },
+    { key: 'jobType', label: '직무유형', get: c => c.jobType },
+    { key: 'career',  label: '경력',     get: c => careerOf(c).totalMonths, text: c => { const x = careerOf(c); return formatCareer(x.years, x.months) } },
+    { key: 'total',   label: '점수',     align: 'right', get: c => c.total, text: c => `${c.total}점` },
+    { key: 'grade',   label: '등급',     get: c => c.grade },
+    { key: 'recSalary',  label: 'AI 추천연봉', align: 'right',
+      get: c => shownSalary(c.recSalary, c.id) ?? -1, text: c => `${maskWon(c.recSalary, c.id)}만원` },
+    { key: 'evalSalary', label: '평가자 추천 연봉', align: 'right',
+      get: c => shownSalary(evalOf(c), 'eval-' + c.id) ?? -1, text: c => `${maskWon(evalOf(c), 'eval-' + c.id)}만원` },
+    { key: 'date',    label: '평가일',   get: c => Number(c.id) || 0, text: c => c.date },
+  ]
+  const grid = useGrid(candidates, columns)
 
   // 채용 확정 — 인원 현황(employees)으로 이관 후 후보 목록에서 제거 (관리자 전용)
   const handleConfirm = async () => {
@@ -90,46 +92,17 @@ export default function Candidates({ candidates }) {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>이름</th><th>파트</th><th>직무유형</th><th>경력</th>
-                  <th>점수</th><th>등급</th><th>AI 추천연봉</th><th>평가자 추천 연봉</th>
-                  <th>평가일</th><th></th>
-                </tr>
-                <tr className="filter-row">
-                  <th><input style={FILTER_INPUT} placeholder="이름" value={filters.name}
-                    onChange={e => setFilters(f => ({ ...f, name: e.target.value }))} /></th>
-                  <th>
-                    <select style={FILTER_INPUT} value={filters.part}
-                      onChange={e => setFilters(f => ({ ...f, part: e.target.value }))}>
-                      <option value="">전체</option>
-                      {distinct(c => c.part).map(v => <option key={v} value={v}>{v}</option>)}
-                    </select>
-                  </th>
-                  <th>
-                    <select style={FILTER_INPUT} value={filters.jobType}
-                      onChange={e => setFilters(f => ({ ...f, jobType: e.target.value }))}>
-                      <option value="">전체</option>
-                      {distinct(c => c.jobType).map(v => <option key={v} value={v}>{v}</option>)}
-                    </select>
-                  </th>
+                  {columns.map(c => <GridTH key={c.key} col={c} grid={grid} />)}
                   <th></th>
-                  <th></th>
-                  <th>
-                    <select style={FILTER_INPUT} value={filters.grade}
-                      onChange={e => setFilters(f => ({ ...f, grade: e.target.value }))}>
-                      <option value="">전체</option>
-                      {distinct(c => c.grade).map(v => <option key={v} value={v}>{v}</option>)}
-                    </select>
-                  </th>
-                  <th></th><th></th><th></th><th></th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 && (
-                  <tr><td colSpan={10} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+                {grid.view.length === 0 && (
+                  <tr><td colSpan={columns.length + 1} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
                     필터 조건에 맞는 후보가 없습니다.
                   </td></tr>
                 )}
-                {filtered.map(c => {
+                {grid.view.map(c => {
                   const cur  = calcCurrentCareer(c.careerYears, c.careerMonths, c.careerInputDate)
                   const gs   = GRADE_STYLE[c.grade]
                   const jts  = JT_TAG_STYLE[c.jobType] || {}

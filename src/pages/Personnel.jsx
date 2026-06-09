@@ -8,14 +8,9 @@ import { useDemo } from '../context/DemoContext'
 import { getCareerLevel } from '../utils/career'
 import { JT_TAG_STYLE, JT_COLOR } from '../utils/constants'
 import { exportPersonnelCSV } from '../utils/excel'
+import { useGrid } from '../utils/useGrid'
+import { GridTH } from '../components/GridHeader'
 
-// 목록 상단 열별 필터 컨트롤 공통 스타일
-const FILTER_INPUT = {
-  width: '100%', minWidth: 0, height: 28, boxSizing: 'border-box',
-  border: '1px solid #cbd5e1', borderRadius: 6, padding: '0 6px',
-  fontSize: 12, fontFamily: 'inherit', fontWeight: 400, color: '#334155',
-  background: '#fff', outline: 'none',
-}
 // 인라인 편집용 텍스트 입력 공통 스타일
 const CELL_INPUT = {
   height: 30, border: '1.5px solid #e2e8f0', borderRadius: 6,
@@ -50,13 +45,12 @@ function CareerEditor({ years, months, onCommit }) {
 export default function Personnel() {
   const { isAdmin, part } = useAuth()
   const { params }  = useParams()
-  const { demoMode, maskWon } = useDemo()
+  const { demoMode, maskWon, shownSalary } = useDemo()
   const [employees, setEmployees] = useState([])
   const [partList, setPartList]   = useState([])
   const [showAdd, setShowAdd]     = useState(false)
   const [form, setForm]           = useState({ name: '', part: '', jobType: '현장주간', careerYears: '', careerMonths: '', currentSalary: '', memo: '' })
   const [saving, setSaving]       = useState(false)
-  const [filters, setFilters]     = useState({ name: '', part: '', jobType: '', level: '', memo: '' })
 
   // 파트 목록 (직원 추가/수정 시 드롭다운 · 채용평가와 동일 소스)
   useEffect(() => onSnapshot(collection(db, 'parts'), s => {
@@ -77,8 +71,6 @@ export default function Personnel() {
       setEmployees(rows)
     })
   }, [isAdmin, part])
-
-  if (!isAdmin && !part) return <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>배정된 파트가 없어 조회할 인원이 없습니다.</div>
 
   const handleAdd = async () => {
     if (!form.name.trim()) return
@@ -131,7 +123,7 @@ export default function Personnel() {
     await deleteDoc(doc(db, 'employees', String(id)))
   }
 
-  // 파생 필드(현재경력·경력등급) 계산 후 필터 적용
+  // 파생 필드(현재경력·경력등급) 계산
   const rows = employees.map(e => {
     const cur   = calcCurrentCareer(e.careerYears, e.careerMonths, e.careerInputDate)
     const yrs   = totalCareerYears(cur.years, cur.months)
@@ -139,14 +131,27 @@ export default function Personnel() {
     const levelLabel = level?.label ?? e.careerLevel ?? '—'
     return { e, cur, level, levelLabel }
   })
-  const distinct = (vals) => [...new Set(vals.filter(Boolean))].sort()
-  const filteredRows = rows.filter(({ e, levelLabel }) =>
-    (!filters.name    || (e.name || '').includes(filters.name)) &&
-    (!filters.part    || e.part === filters.part) &&
-    (!filters.jobType || e.jobType === filters.jobType) &&
-    (!filters.level   || levelLabel === filters.level) &&
-    (!filters.memo    || (e.memo || '').includes(filters.memo))
-  )
+
+  // 정렬·필터 기준 (연봉은 화면에 보이는 값과 일치 → 시연모드에서 실제값 누수 없음)
+  const baseSeed = r => 'base-' + r.e.jobType + '-' + r.levelLabel
+  const columns = [
+    { key: 'name',     label: '이름',     get: r => r.e.name },
+    { key: 'part',     label: '파트',     get: r => r.e.part },
+    { key: 'jobType',  label: '직무유형', get: r => r.e.jobType },
+    { key: 'career',   label: '현재 경력', get: r => r.cur.totalMonths, text: r => formatCareer(r.cur.years, r.cur.months) },
+    { key: 'level',    label: '경력등급', get: r => r.levelLabel },
+    { key: 'baseSalary', label: '기준연봉', align: 'right',
+      get:  r => r.level ? (shownSalary(r.level.salary, baseSeed(r)) ?? -1) : -1,
+      text: r => r.level ? `${maskWon(r.level.salary, baseSeed(r))}만원` : '—' },
+    { key: 'currentSalary', label: '현재연봉', align: 'right',
+      get:  r => shownSalary(r.e.currentSalary, r.e.id) ?? -1,
+      text: r => `${maskWon(r.e.currentSalary, r.e.id)}만원` },
+    { key: 'memo',     label: '메모',     get: r => r.e.memo || '' },
+  ]
+  const grid = useGrid(rows, columns)
+
+  // 모든 훅 호출 이후에 조건부 반환 (rules-of-hooks 준수)
+  if (!isAdmin && !part) return <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>배정된 파트가 없어 조회할 인원이 없습니다.</div>
 
   return (
     <div>
@@ -170,50 +175,17 @@ export default function Personnel() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>이름</th><th>파트</th><th>직무유형</th>
-                  <th>현재 경력</th><th>경력등급</th>
-                  <th>기준연봉</th><th>현재연봉</th>
-                  <th>메모</th><th></th>
-                </tr>
-                <tr className="filter-row">
-                  <th><input style={FILTER_INPUT} placeholder="이름" value={filters.name}
-                    onChange={e => setFilters(f => ({ ...f, name: e.target.value }))} /></th>
-                  <th>
-                    <select style={FILTER_INPUT} value={filters.part}
-                      onChange={e => setFilters(f => ({ ...f, part: e.target.value }))}>
-                      <option value="">전체</option>
-                      {distinct(rows.map(({ e }) => e.part)).map(v => <option key={v} value={v}>{v}</option>)}
-                    </select>
-                  </th>
-                  <th>
-                    <select style={FILTER_INPUT} value={filters.jobType}
-                      onChange={e => setFilters(f => ({ ...f, jobType: e.target.value }))}>
-                      <option value="">전체</option>
-                      {distinct(rows.map(({ e }) => e.jobType)).map(v => <option key={v} value={v}>{v}</option>)}
-                    </select>
-                  </th>
-                  <th></th>
-                  <th>
-                    <select style={FILTER_INPUT} value={filters.level}
-                      onChange={e => setFilters(f => ({ ...f, level: e.target.value }))}>
-                      <option value="">전체</option>
-                      {distinct(rows.map(r => r.levelLabel)).map(v => <option key={v} value={v}>{v}</option>)}
-                    </select>
-                  </th>
-                  <th></th>
-                  <th></th>
-                  <th><input style={FILTER_INPUT} placeholder="메모" value={filters.memo}
-                    onChange={e => setFilters(f => ({ ...f, memo: e.target.value }))} /></th>
+                  {columns.map(c => <GridTH key={c.key} col={c} grid={grid} />)}
                   <th></th>
                 </tr>
               </thead>
               <tbody>
-                {filteredRows.length === 0 && (
-                  <tr><td colSpan={9} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+                {grid.view.length === 0 && (
+                  <tr><td colSpan={columns.length + 1} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
                     필터 조건에 맞는 직원이 없습니다.
                   </td></tr>
                 )}
-                {filteredRows.map(({ e, cur, level, levelLabel }) => {
+                {grid.view.map(({ e, cur, level, levelLabel }) => {
                   const jts = JT_TAG_STYLE[e.jobType] || {}
                   const partInList = partList.some(p => p.name === e.part)
                   return (

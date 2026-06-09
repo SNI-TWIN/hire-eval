@@ -42,8 +42,16 @@ export function DemoProvider({ children }) {
     return fakeSalary(seed).toLocaleString()
   }, [demoMode, demoStyle])
 
+  // 화면에 실제로 보이는 연봉의 "정렬용 숫자" — OFF=실제값, 가짜=가짜값, 마스킹=null(정렬 무의미)
+  // 정렬/필터가 화면 표시값과 일치하도록(=실제 연봉 누수 없음) maskWon과 짝을 이룸
+  const shownSalary = useCallback((value, seed) => {
+    if (!demoMode) return Number(value || 0)
+    if (demoStyle === 'mask') return null
+    return fakeSalary(seed)
+  }, [demoMode, demoStyle])
+
   return (
-    <DemoContext.Provider value={{ demoMode, setDemoMode, demoStyle, setDemoStyle, maskWon }}>
+    <DemoContext.Provider value={{ demoMode, setDemoMode, demoStyle, setDemoStyle, maskWon, shownSalary }}>
       {children}
     </DemoContext.Provider>
   )

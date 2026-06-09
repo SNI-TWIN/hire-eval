@@ -209,7 +209,6 @@ body {
 .data-table td { padding: 12px 14px; border-bottom: 1px solid #f1f5f9; font-size: 13px; color: #374151; }
 .data-table tr:last-child td { border-bottom: none; }
 .data-table tbody tr:hover td { background: #fafafa; }
-.data-table .filter-row th { padding: 6px 10px; background: #f1f5f9; vertical-align: middle; }
 .table-empty { text-align: center; padding: 48px 24px; color: #94a3b8; font-size: 14px; line-height: 2; }
 
 /* ── MODAL ───────────────────────────────── */
