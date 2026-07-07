@@ -3,6 +3,7 @@ import { db } from '../firebase'
 import { collection, onSnapshot, doc, setDoc, getDoc } from 'firebase/firestore'
 import { useAuth } from '../context/AuthContext'
 import { JT_COLOR, JT_TAG_STYLE } from '../utils/constants'
+import { logAudit } from '../utils/audit'
 
 export default function TOPage() {
   const { isAdmin }   = useAuth()
@@ -35,6 +36,8 @@ export default function TOPage() {
   const saveEdit  = async () => {
     setToConfig(draft)
     await setDoc(doc(db, 'settings', 'to_config'), { parts: draft })
+    logAudit('T/O 설정 저장', { type: 'settings', id: 'to_config' },
+      `${draft.length}개 행 · 총 T/O ${draft.reduce((s, r) => s + (parseInt(r.to) || 0), 0)}명`)
     setEditing(false)
   }
   const addRow = () => setDraft(p => [...p, { part: '', jobType: '현장주간', to: 0 }])
@@ -94,27 +97,27 @@ export default function TOPage() {
                 {editing
                   ? draft.map((r, i) => (
                       <tr key={i}>
-                        <td><input style={{ width: 120, border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 8px', fontSize: 13, fontFamily: 'inherit' }}
+                        <td data-label="파트"><input style={{ width: 120, border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 8px', fontSize: 13, fontFamily: 'inherit' }}
                           value={r.part} onChange={e => updRow(i, 'part', e.target.value)} placeholder="파트명" /></td>
-                        <td>
+                        <td data-label="직무유형">
                           <select style={{ border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 8px', fontSize: 13, fontFamily: 'inherit' }}
                             value={r.jobType} onChange={e => updRow(i, 'jobType', e.target.value)}>
                             {['현장주간','현장교대','사무주간'].map(jt => <option key={jt}>{jt}</option>)}
                           </select>
                         </td>
-                        <td><input type="number" min="0" style={{ width: 60, border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 8px', fontSize: 13, fontFamily: 'inherit' }}
+                        <td data-label="T/O"><input type="number" min="0" inputMode="numeric" style={{ width: 60, border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 8px', fontSize: 13, fontFamily: 'inherit' }}
                           value={r.to} onChange={e => updRow(i, 'to', parseInt(e.target.value) || 0)} /></td>
-                        <td>—</td><td>—</td>
-                        <td><button className="btn-danger" style={{ padding: '3px 8px', fontSize: 12 }} onClick={() => delRow(i)}>삭제</button></td>
+                        <td data-label="현원">—</td><td data-label="잔여">—</td>
+                        <td className="row-actions"><button className="btn-danger btn-xs" onClick={() => delRow(i)}>삭제</button></td>
                       </tr>
                     ))
                   : rows.map((r, i) => (
                       <tr key={i}>
-                        <td style={{ fontWeight: 600 }}>{r.part || '—'}</td>
-                        <td><span style={{ ...JT_TAG_STYLE[r.jobType], padding: '3px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600 }}>{r.jobType}</span></td>
-                        <td>{r.to}명</td>
-                        <td style={{ fontWeight: 600, color: JT_COLOR[r.jobType] }}>{r.cur}명</td>
-                        <td>
+                        <td className="row-title" style={{ fontWeight: 600 }}>{r.part || '—'}</td>
+                        <td data-label="직무유형"><span style={{ ...JT_TAG_STYLE[r.jobType], padding: '3px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600 }}>{r.jobType}</span></td>
+                        <td data-label="T/O">{r.to}명</td>
+                        <td data-label="현원" style={{ fontWeight: 600, color: JT_COLOR[r.jobType] }}>{r.cur}명</td>
+                        <td data-label="잔여">
                           <span style={{
                             fontWeight: 600,
                             color: r.remain > 0 ? '#0b7a70' : r.remain === 0 ? '#854d0e' : '#9b1c1c',

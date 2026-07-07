@@ -4,6 +4,7 @@ import { db } from '../firebase'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { useAuth } from '../context/AuthContext'
 import { hashCode } from '../utils/crypto'
+import { logAudit } from '../utils/audit'
 
 const CODE_RE = /^\d{6}$/
 
@@ -23,14 +24,19 @@ export default function AdminCodeModal({ onClose, onUnlock, change = false }) {
   const [error, setError]   = useState('')
   const [busy, setBusy]     = useState(false)
   const [show, setShow]     = useState(false)   // 코드 표시/숨김 토글
+  const [loadErr, setLoadErr] = useState(false)
 
-  useEffect(() => {
+  // 읽기 실패를 '코드 미설정'으로 오인하면 설정 모드로 빠져 기존 코드를
+  // 확인 없이 덮어쓸 수 있으므로, 오류는 별도 화면(재시도)으로 처리
+  const load = () => {
     getDoc(doc(db, 'config', 'admin'))
-      .then(snap => { setHasCode(snap.exists() && !!snap.data().codeHash); setReady(true) })
-      .catch(() => { setHasCode(false); setReady(true) })
-  }, [])
+      .then(snap => { setHasCode(snap.exists() && !!snap.data().codeHash); setLoadErr(false); setReady(true) })
+      .catch(() => { setLoadErr(true); setReady(true) })
+  }
+  useEffect(load, [])
+  const retry = () => { setReady(false); setLoadErr(false); load() }
 
-  const setupMode  = ready && !hasCode          // 최초 코드 설정
+  const setupMode  = ready && !loadErr && !hasCode   // 최초 코드 설정
   const changeMode = change && hasCode          // 코드 변경
   const enterMode  = !setupMode && !changeMode  // 일반 입력
 
@@ -62,6 +68,7 @@ export default function AdminCodeModal({ onClose, onUnlock, change = false }) {
         if (!(await verify(cur))) return setError('현재 코드가 일치하지 않습니다.')
       }
       await saveCode(await hashCode(next))
+      logAudit(setupMode ? '관리자 코드 설정' : '관리자 코드 변경', { type: 'config', id: 'admin' })
       if (setupMode) onUnlock()   // 최초 설정 = 곧바로 진입
       else { setError(''); onClose() }
     } catch (err) {
@@ -109,6 +116,16 @@ export default function AdminCodeModal({ onClose, onUnlock, change = false }) {
         <div className="modal-desc">{desc}</div>
         {!ready ? (
           <div style={{ padding: 20, textAlign: 'center', color: '#94a3b8' }}>확인 중...</div>
+        ) : loadErr ? (
+          <div style={{ padding: '12px 0' }}>
+            <div className="validation-msg" style={{ display: 'block', marginBottom: 12 }}>
+              코드 설정 상태를 확인하지 못했습니다. 네트워크 상태를 확인한 뒤 다시 시도하세요.
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="btn-secondary" onClick={onClose}>취소</button>
+              <button type="button" className="btn-primary" onClick={retry}>다시 시도</button>
+            </div>
+          </div>
         ) : (
           <form onSubmit={handle}>
             {(enterMode || changeMode) && (

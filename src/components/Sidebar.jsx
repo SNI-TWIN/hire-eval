@@ -1,4 +1,4 @@
-import { ClipboardList, UserCheck, Users, BarChart2, Target, Settings, UserCog, Building2 } from 'lucide-react'
+import { ClipboardList, UserCheck, Users, BarChart2, Target, Settings, UserCog, Building2, History } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 const PUBLIC_MENUS = [
@@ -12,6 +12,7 @@ const ADMIN_MENUS = [
   { id: 'members',   Icon: UserCog,   label: '사용자 관리' },
   { id: 'orgparts',  Icon: Building2, label: '파트 관리' },
   { id: 'params',    Icon: Settings,  label: '파라미터 설정' },
+  { id: 'audit',     Icon: History,   label: '감사 로그·휴지통' },
 ]
 
 export default function Sidebar({ page, onPage, candidateCount }) {

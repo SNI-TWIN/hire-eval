@@ -16,7 +16,7 @@ export default defineConfig({
         theme_color: '#0d9488',
         background_color: '#f0f2f5',
         display: 'standalone',
-        orientation: 'portrait',
+        orientation: 'any',   // 표가 많은 앱 — 태블릿·가로 모드 허용
         scope: './',
         start_url: './',
         icons: [

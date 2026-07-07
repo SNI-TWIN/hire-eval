@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { db } from '../firebase'
-import { collection, onSnapshot, query, where, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore'
+import { collection, onSnapshot, query, where, doc, setDoc, updateDoc } from 'firebase/firestore'
 import { useAuth } from '../context/AuthContext'
 import { calcCurrentCareer, formatCareer, totalCareerYears } from '../utils/career'
 import { useParams } from '../context/ParamsContext'
@@ -8,8 +8,10 @@ import { useDemo } from '../context/DemoContext'
 import { getCareerLevel } from '../utils/career'
 import { JT_TAG_STYLE, JT_COLOR } from '../utils/constants'
 import { exportPersonnelCSV } from '../utils/excel'
-import { useGrid } from '../utils/useGrid'
-import { GridTH } from '../components/GridHeader'
+import { useGrid, createdTs } from '../utils/useGrid'
+import { GridTH, MobileGridBar } from '../components/GridHeader'
+import { useConfirm } from '../components/ConfirmDialog'
+import { logAudit, moveToTrash } from '../utils/audit'
 
 // 인라인 편집용 텍스트 입력 공통 스타일
 const CELL_INPUT = {
@@ -30,11 +32,11 @@ function CareerEditor({ years, months, onCommit }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 4 }}>
       <span style={{ fontSize: 11, color: '#94a3b8' }}>입력:</span>
-      <input type="number" min="0" max="50" value={y}
+      <input type="number" min="0" max="50" inputMode="numeric" value={y}
         onChange={e => setY(e.target.value)} onBlur={commit}
         style={{ ...CELL_INPUT, width: 44, textAlign: 'center', fontSize: 12 }} />
       <span style={{ fontSize: 11, color: '#94a3b8' }}>년</span>
-      <input type="number" min="0" max="11" value={m}
+      <input type="number" min="0" max="11" inputMode="numeric" value={m}
         onChange={e => setM(e.target.value)} onBlur={commit}
         style={{ ...CELL_INPUT, width: 44, textAlign: 'center', fontSize: 12 }} />
       <span style={{ fontSize: 11, color: '#94a3b8' }}>개월</span>
@@ -46,6 +48,7 @@ export default function Personnel() {
   const { isAdmin, part } = useAuth()
   const { params }  = useParams()
   const { demoMode, maskWon, shownSalary } = useDemo()
+  const [ask, confirmEl] = useConfirm()
   const [employees, setEmployees] = useState([])
   const [partList, setPartList]   = useState([])
   const [showAdd, setShowAdd]     = useState(false)
@@ -67,7 +70,7 @@ export default function Personnel() {
       : query(collection(db, 'employees'), where('part', '==', part))
     return onSnapshot(ref, snap => {
       const rows = snap.docs.map(d => d.data())
-      rows.sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0))
+      rows.sort((a, b) => createdTs(b) - createdTs(a))
       setEmployees(rows)
     })
   }, [isAdmin, part])
@@ -75,9 +78,10 @@ export default function Personnel() {
   const handleAdd = async () => {
     if (!form.name.trim()) return
     setSaving(true)
-    const id = Date.now()
-    await setDoc(doc(db, 'employees', String(id)), {
-      id,
+    // 자동 ID — Date.now() 기반 ID는 동시 저장 시 충돌(덮어쓰기) 위험이 있어 사용하지 않음
+    const ref = doc(collection(db, 'employees'))
+    await setDoc(ref, {
+      id: ref.id,
       name: form.name.trim(),
       part: form.part.trim(),
       jobType: form.jobType,
@@ -86,15 +90,22 @@ export default function Personnel() {
       careerInputDate: new Date().toISOString(),
       currentSalary: parseInt(form.currentSalary) || 0,
       memo: form.memo.trim(),
+      createdAt: new Date().toISOString(),
       addedDate: new Date().toLocaleDateString('ko-KR'),
     })
+    logAudit('직원 등록', { type: 'employees', id: ref.id, name: form.name.trim() },
+      `${form.part.trim() || '파트 미지정'} · ${form.jobType}`)
     setForm({ name: '', part: '', jobType: '현장주간', careerYears: '', careerMonths: '', currentSalary: '', memo: '' })
     setShowAdd(false)
     setSaving(false)
   }
 
-  const handleSalaryChange = async (id, val) => {
-    await updateDoc(doc(db, 'employees', String(id)), { currentSalary: parseInt(val) || 0 })
+  const handleSalaryChange = async (e, val) => {
+    const next = parseInt(val) || 0
+    if (next === (e.currentSalary || 0)) return
+    await updateDoc(doc(db, 'employees', String(e.id)), { currentSalary: next })
+    logAudit('직원 연봉 수정', { type: 'employees', id: e.id, name: e.name },
+      `${(e.currentSalary || 0).toLocaleString()} → ${next.toLocaleString()}만원`)
   }
 
   const handleJobTypeChange = async (id, val) => {
@@ -118,9 +129,16 @@ export default function Personnel() {
   // 재계산 시 경력등급을 산출할 수 있는 직무유형 목록 (드롭다운 = 재계산과 항상 일치)
   const jobTypeKeys = Object.keys(params.careerLevels || {})
 
-  const handleDelete = async (id) => {
-    if (!confirm('삭제하시겠습니까?')) return
-    await deleteDoc(doc(db, 'employees', String(id)))
+  // 삭제 = 휴지통 이동 (감사 로그·휴지통 메뉴에서 복원 가능)
+  const handleDelete = async (emp) => {
+    const ok = await ask({
+      title: '직원 삭제',
+      message: `'${emp.name}' 직원을 삭제할까요?\n삭제된 데이터는 관리자 메뉴 [감사 로그·휴지통]에서 복원할 수 있습니다.`,
+      danger: true, confirmLabel: '삭제',
+    })
+    if (!ok) return
+    await moveToTrash('employees', emp.id, emp, emp.name)
+    logAudit('직원 삭제', { type: 'employees', id: emp.id, name: emp.name }, `${emp.part} · ${emp.jobType}`)
   }
 
   // 파생 필드(현재경력·경력등급) 계산
@@ -163,9 +181,16 @@ export default function Personnel() {
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 12 }}>
-        <button className="btn-icon" onClick={() => exportPersonnelCSV(employees)}>📥 CSV 내보내기</button>
+        {/* 시연 모드: 파일에는 실제 연봉이 그대로 담기므로 내보내기 차단 */}
+        <button className="btn-icon" onClick={() => exportPersonnelCSV(employees)} disabled={demoMode}
+          title={demoMode ? '시연 모드에서는 실제 연봉 유출을 막기 위해 내보내기가 비활성화됩니다' : undefined}
+          style={demoMode ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}>
+          📥 CSV 내보내기
+        </button>
         {isAdmin && <button className="btn-primary" onClick={() => setShowAdd(true)}>+ 직원 추가</button>}
       </div>
+
+      {employees.length > 0 && <MobileGridBar columns={columns} grid={grid} />}
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         {employees.length === 0 ? (
@@ -190,7 +215,7 @@ export default function Personnel() {
                   const partInList = partList.some(p => p.name === e.part)
                   return (
                     <tr key={e.id}>
-                      <td style={{ fontWeight: 600 }}>
+                      <td data-label="이름" style={{ fontWeight: 600 }}>
                         {isAdmin ? (
                           <input
                             defaultValue={e.name}
@@ -199,7 +224,7 @@ export default function Personnel() {
                           />
                         ) : e.name}
                       </td>
-                      <td>
+                      <td data-label="파트">
                         {isAdmin ? (
                           <select
                             value={partInList ? e.part : ''}
@@ -212,7 +237,7 @@ export default function Personnel() {
                           </select>
                         ) : e.part}
                       </td>
-                      <td>
+                      <td data-label="직무유형">
                         {isAdmin ? (
                           <select
                             value={jobTypeKeys.includes(e.jobType) ? e.jobType : ''}
@@ -233,7 +258,7 @@ export default function Personnel() {
                           </span>
                         )}
                       </td>
-                      <td style={{ fontSize: 13 }}>
+                      <td data-label="현재 경력" style={{ fontSize: 13 }}>
                         {formatCareer(cur.years, cur.months)}
                         {isAdmin ? (
                           <CareerEditor
@@ -246,23 +271,23 @@ export default function Personnel() {
                           <div style={{ fontSize: 11, color: '#94a3b8' }}>입력: {formatCareer(e.careerYears, e.careerMonths)}</div>
                         )}
                       </td>
-                      <td>
+                      <td data-label="경력등급">
                         <span style={{ fontSize: 13, fontWeight: 600, color: JT_COLOR[e.jobType] || '#0d9488' }}>
                           {levelLabel}
                         </span>
                       </td>
-                      <td style={{ fontSize: 13 }}>
+                      <td data-label="기준연봉" style={{ fontSize: 13 }}>
                         {level ? `${maskWon(level.salary, 'base-' + e.jobType + '-' + levelLabel)}만원` : '—'}
                       </td>
-                      <td>
+                      <td data-label="현재연봉">
                         {demoMode ? (
                           <span style={{ fontSize: 13 }}>{maskWon(e.currentSalary, e.id)}만원</span>
                         ) : isAdmin ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                             <input
-                              type="number" step="100"
+                              type="number" step="100" inputMode="numeric"
                               defaultValue={e.currentSalary || ''}
-                              onBlur={ev => handleSalaryChange(e.id, ev.target.value)}
+                              onBlur={ev => handleSalaryChange(e, ev.target.value)}
                               style={{
                                 width: 80, height: 30, border: '1.5px solid #e2e8f0',
                                 borderRadius: 6, padding: '0 8px', fontSize: 13,
@@ -278,7 +303,7 @@ export default function Personnel() {
                           </span>
                         )}
                       </td>
-                      <td style={{ fontSize: 12, color: '#64748b', maxWidth: 140 }}>
+                      <td data-label="메모" style={{ fontSize: 12, color: '#64748b', maxWidth: 140 }}>
                         {isAdmin ? (
                           <input
                             defaultValue={e.memo || ''}
@@ -288,9 +313,9 @@ export default function Personnel() {
                           />
                         ) : e.memo}
                       </td>
-                      <td>
+                      <td className="row-actions">
                         {isAdmin && (
-                          <button className="btn-danger" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => handleDelete(e.id)}>삭제</button>
+                          <button className="btn-danger btn-xs" onClick={() => handleDelete(e)}>삭제</button>
                         )}
                       </td>
                     </tr>
@@ -337,16 +362,16 @@ export default function Personnel() {
             <div style={{ marginBottom: 12 }}>
               <div className="info-label">총 경력</div>
               <div className="career-input-wrap">
-                <input className="career-input" type="number" min="0" value={form.careerYears} onChange={e => setForm(p => ({ ...p, careerYears: e.target.value }))} placeholder="0" />
+                <input className="career-input" type="number" min="0" inputMode="numeric" value={form.careerYears} onChange={e => setForm(p => ({ ...p, careerYears: e.target.value }))} placeholder="0" />
                 <span className="career-unit">년</span>
-                <input className="career-input" type="number" min="0" max="11" value={form.careerMonths} onChange={e => setForm(p => ({ ...p, careerMonths: e.target.value }))} placeholder="0" />
+                <input className="career-input" type="number" min="0" max="11" inputMode="numeric" value={form.careerMonths} onChange={e => setForm(p => ({ ...p, careerMonths: e.target.value }))} placeholder="0" />
                 <span className="career-unit">개월</span>
               </div>
             </div>
             <div className="info-grid" style={{ marginBottom: 12 }}>
               <div>
                 <div className="info-label">현재 연봉 (만원)</div>
-                <input className="info-input" type="number" step="100" value={form.currentSalary} onChange={e => setForm(p => ({ ...p, currentSalary: e.target.value }))} placeholder="3200" />
+                <input className="info-input" type="number" step="100" inputMode="numeric" value={form.currentSalary} onChange={e => setForm(p => ({ ...p, currentSalary: e.target.value }))} placeholder="3200" />
               </div>
               <div>
                 <div className="info-label">메모</div>
@@ -362,6 +387,8 @@ export default function Personnel() {
           </div>
         </div>
       )}
+
+      {confirmEl}
     </div>
   )
 }

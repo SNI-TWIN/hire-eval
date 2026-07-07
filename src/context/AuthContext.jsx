@@ -32,6 +32,8 @@ export function AuthProvider({ children }) {
         setProfile(prof)
       } else {
         setProfile(null)
+        // 공용 PC 보호 — 로그아웃 시 관리자 잠금 해제 상태가 다음 로그인으로 넘어가지 않게 함
+        sessionStorage.removeItem('adminUnlocked')
       }
       setLoading(false)
     })

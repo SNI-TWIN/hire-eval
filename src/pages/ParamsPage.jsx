@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { useParams } from '../context/ParamsContext'
 import { JOB_TYPES, GRADE_STYLE } from '../utils/constants'
 import { buildEvalSchema } from '../utils/schema'
+import { logAudit } from '../utils/audit'
 
 export default function ParamsPage() {
   const { isAdmin }          = useAuth()
@@ -23,6 +24,7 @@ export default function ParamsPage() {
     setSaving(true)
     try {
       await saveParams(draft)
+      logAudit('파라미터 저장', { type: 'settings', id: 'params_v2' }, '연봉밴드·면접배점·등급기준 변경')
       setDraft(null)
       setToast('저장 완료')
       setTimeout(() => setToast(''), 2500)

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Wrench, Clock, ArrowLeftRight, Lightbulb, CircleDot, Download } from 'lucide-react'
 import { db } from '../firebase'
-import { doc, setDoc, updateDoc } from 'firebase/firestore'
+import { collection, doc, setDoc, updateDoc } from 'firebase/firestore'
+import { logAudit } from '../utils/audit'
 import { useAuth } from '../context/AuthContext'
 import { useDemo } from '../context/DemoContext'
 import { GRADE_STYLE, GRADE_NAMES, JT_COLOR, JT_TAG_STYLE } from '../utils/constants'
@@ -47,23 +48,29 @@ export default function EvalResult({ result: r, onBack, onReset, viewMode = fals
   const handleEvalSalaryBlur = async () => {
     if (!viewMode) return
     try {
-      await updateDoc(doc(db, 'candidates', String(r.id)), { evalSalary: parseInt(evalSalary) || 0 })
+      const next = parseInt(evalSalary) || 0
+      await updateDoc(doc(db, 'candidates', String(r.id)), { evalSalary: next })
+      logAudit('후보 추천연봉 수정', { type: 'candidates', id: r.id, name: r.name }, `→ ${next.toLocaleString()}만원`)
       showToast('평가자 추천 연봉을 저장했습니다.')
     } catch (e) {
       showToast('저장 실패: ' + e.message, false)
     }
   }
 
-  // 채용 후보로 저장 — candidates 컬렉션에 보관
+  // 채용 후보로 저장 — candidates 컬렉션에 보관 (자동 ID — Date.now() 충돌 방지)
   const handleSaveCandidate = async () => {
     if (saving) return
     setSaving(true)
     try {
-      await setDoc(doc(db, 'candidates', String(r.id)), {
+      const ref = doc(collection(db, 'candidates'))
+      await setDoc(ref, {
         ...r,
+        id: ref.id,
+        createdAt: new Date().toISOString(),
         evalSalary: parseInt(evalSalary) || r.recSalary,
         status: 'candidate', ownerUid: user?.uid || null, ownerEmail: user?.email || null,
       })
+      logAudit('후보 저장', { type: 'candidates', id: ref.id, name: r.name }, `${r.part} · ${r.grade}등급 ${r.total}점`)
       setSaved(true)
       showToast('채용 후보로 저장되었습니다.')
     } catch (e) {
@@ -78,8 +85,10 @@ export default function EvalResult({ result: r, onBack, onReset, viewMode = fals
     if (saving) return
     setSaving(true)
     try {
-      await setDoc(doc(db, 'employees', String(r.id)), {
-        id: r.id,
+      const ref = doc(collection(db, 'employees'))   // 자동 ID
+      const salary = parseInt(evalSalary) || r.recSalary
+      await setDoc(ref, {
+        id: ref.id,
         name: r.name,
         part: r.part,
         jobType: r.jobType,
@@ -87,10 +96,13 @@ export default function EvalResult({ result: r, onBack, onReset, viewMode = fals
         careerMonths: r.careerMonths,
         careerInputDate: r.careerInputDate,
         careerLevel: r.careerLevel ?? null,   // 평가 시점 경력등급 스냅샷 (재계산 실패 시 폴백)
-        currentSalary: parseInt(evalSalary) || r.recSalary,   // 평가자 추천 연봉을 현재연봉으로 이관
+        currentSalary: salary,   // 평가자 추천 연봉을 현재연봉으로 이관
         memo: `채용확정 (${r.grade}등급 · ${r.total}점)`,
+        createdAt: new Date().toISOString(),
         addedDate: new Date().toLocaleDateString('ko-KR'),
       })
+      logAudit('채용 확정', { type: 'employees', id: ref.id, name: r.name },
+        `${r.part} · ${r.grade}등급 ${r.total}점 · 확정연봉 ${salary.toLocaleString()}만원`)
       setSaved(true)
       showToast('채용 확정 — 인원 현황에 등록되었습니다.')
     } catch (e) {
@@ -202,7 +214,7 @@ export default function EvalResult({ result: r, onBack, onReset, viewMode = fals
                 </span>
               ) : (
                 <input
-                  type="number" step="100"
+                  type="number" step="100" inputMode="numeric"
                   value={evalSalary}
                   onChange={e => setEvalSalary(e.target.value)}
                   onBlur={handleEvalSalaryBlur}
@@ -330,13 +342,13 @@ export default function EvalResult({ result: r, onBack, onReset, viewMode = fals
                 const bc   = pctItem >= 75 ? '#0d9488' : pctItem >= 50 ? '#3b82f6' : pctItem >= 25 ? '#f59e0b' : s < 0 ? '#ef4444' : '#94a3b8'
                 const sel  = r.selections[k] ?? '—'
                 return (
-                  <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                    <div style={{ fontSize: 13, color: '#374151', width: 150, flexShrink: 0 }}>{it.name}</div>
-                    <div style={{ flex: 1, height: 8, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
+                  <div key={k} className="detail-row">
+                    <div className="detail-name">{it.name}</div>
+                    <div className="detail-track">
                       <div style={{ width: `${pctItem}%`, maxWidth: '100%', height: 8, background: bc, borderRadius: 4, transition: 'width 0.8s' }} />
                     </div>
-                    <div style={{ fontSize: 12, color: '#64748b', width: 120, flexShrink: 0 }}>{sel}</div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: s < 0 ? '#e53e3e' : '#1a202c', width: 40, textAlign: 'right' }}>
+                    <div className="detail-sel">{sel}</div>
+                    <div className="detail-score" style={{ color: s < 0 ? '#e53e3e' : '#1a202c' }}>
                       {s >= 0 ? `+${s}` : s}점
                     </div>
                   </div>
@@ -361,7 +373,9 @@ export default function EvalResult({ result: r, onBack, onReset, viewMode = fals
         {viewMode ? (
           <>
             <button className="btn-secondary" onClick={onBack}>← 목록으로</button>
-            <button className="btn-icon" onClick={() => exportEvalSheet(r, params)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button className="btn-icon" onClick={() => exportEvalSheet(r, params)} disabled={demoMode}
+              title={demoMode ? '시연 모드에서는 실제 연봉 유출을 막기 위해 내보내기가 비활성화됩니다' : undefined}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, ...(demoMode ? { opacity: 0.5, cursor: 'not-allowed' } : {}) }}>
               <Download size={14} /> 엑셀 다운로드
             </button>
             {toast && (
@@ -393,7 +407,9 @@ export default function EvalResult({ result: r, onBack, onReset, viewMode = fals
                 저장 완료
               </div>
             )}
-            <button className="btn-icon" onClick={() => exportEvalSheet(r, params)} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button className="btn-icon" onClick={() => exportEvalSheet(r, params)} disabled={demoMode}
+              title={demoMode ? '시연 모드에서는 실제 연봉 유출을 막기 위해 내보내기가 비활성화됩니다' : undefined}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, ...(demoMode ? { opacity: 0.5, cursor: 'not-allowed' } : {}) }}>
               <Download size={14} /> 엑셀 다운로드
             </button>
             <button className="btn-secondary" onClick={onBack}>← 평가 입력으로</button>

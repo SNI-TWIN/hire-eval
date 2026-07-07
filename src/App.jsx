@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { db } from './firebase'
 import { collection, onSnapshot, query, where } from 'firebase/firestore'
 import { useAuth } from './context/AuthContext'
+import { createdTs } from './utils/useGrid'
 
 import Header        from './components/Header'
 import Sidebar       from './components/Sidebar'
@@ -17,43 +18,12 @@ import TOPage       from './pages/TOPage'
 import ParamsPage   from './pages/ParamsPage'
 import Members      from './pages/Members'
 import OrgParts     from './pages/OrgParts'
+import AuditPage    from './pages/AuditPage'
 
-const ADMIN_PAGES = ['charts', 'to', 'params', 'members', 'orgparts']
+const ADMIN_PAGES = ['charts', 'to', 'params', 'members', 'orgparts', 'audit']
 
 export default function App() {
-  const { loading, user, hasAccess, isAdmin, part, logout } = useAuth()
-  const [page, setPage]             = useState('eval')
-  const [candidates, setCandidates] = useState([])
-  // 관리자 코드 잠금 해제(세션 유지) + 코드 게이트/변경 모달
-  const [adminUnlocked, setAdminUnlocked] = useState(() => sessionStorage.getItem('adminUnlocked') === '1')
-  const [codeGate, setCodeGate]     = useState(null)   // { target } | { change:true } | null
-
-  // 채용 후보 실시간 — 관리자는 전체, 파트장은 자기 파트만 (서버 규칙과 동일하게 클라이언트에서도 필터)
-  useEffect(() => {
-    if (!hasAccess) return
-    if (!isAdmin && !part) return   // 파트 미배정: 구독 안 함 (빈 목록 유지)
-    const ref = isAdmin
-      ? collection(db, 'candidates')
-      : query(collection(db, 'candidates'), where('part', '==', part))
-    return onSnapshot(ref, snap => {
-      const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      rows.sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0))
-      setCandidates(rows)
-    })
-  }, [hasAccess, isAdmin, part])
-
-  const unlockAdmin = () => {
-    sessionStorage.setItem('adminUnlocked', '1')
-    setAdminUnlocked(true)
-  }
-
-  const goPage = (id) => {
-    if (ADMIN_PAGES.includes(id)) {
-      if (!isAdmin) return                 // 관리자 계정만
-      if (!adminUnlocked) { setCodeGate({ target: id }); return }  // 코드 게이트
-    }
-    setPage(id)
-  }
+  const { loading, user, hasAccess, logout } = useAuth()
 
   if (loading) {
     return <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', color: '#94a3b8' }}>불러오는 중...</div>
@@ -74,6 +44,46 @@ export default function App() {
     )
   }
 
+  // key=uid — 로그아웃/사용자 변경 시 포털 상태(보던 페이지·관리자 잠금 해제 등)를 통째로 초기화.
+  // 공용 PC에서 이전 사용자의 화면 상태가 다음 사용자에게 넘어가지 않게 함
+  return <Portal key={user.uid} />
+}
+
+function Portal() {
+  const { isAdmin, part } = useAuth()
+  const [page, setPage]             = useState('eval')
+  const [candidates, setCandidates] = useState([])
+  // 관리자 코드 잠금 해제(세션 유지) + 코드 게이트/변경 모달
+  // (sessionStorage의 adminUnlocked는 로그아웃 시 AuthContext에서 제거됨)
+  const [adminUnlocked, setAdminUnlocked] = useState(() => sessionStorage.getItem('adminUnlocked') === '1')
+  const [codeGate, setCodeGate]     = useState(null)   // { target } | { change:true } | null
+
+  // 채용 후보 실시간 — 관리자는 전체, 파트장은 자기 파트만 (서버 규칙과 동일하게 클라이언트에서도 필터)
+  useEffect(() => {
+    if (!isAdmin && !part) return   // 파트 미배정: 구독 안 함 (빈 목록 유지)
+    const ref = isAdmin
+      ? collection(db, 'candidates')
+      : query(collection(db, 'candidates'), where('part', '==', part))
+    return onSnapshot(ref, snap => {
+      const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      rows.sort((a, b) => createdTs(b) - createdTs(a))
+      setCandidates(rows)
+    })
+  }, [isAdmin, part])
+
+  const unlockAdmin = () => {
+    sessionStorage.setItem('adminUnlocked', '1')
+    setAdminUnlocked(true)
+  }
+
+  const goPage = (id) => {
+    if (ADMIN_PAGES.includes(id)) {
+      if (!isAdmin) return                 // 관리자 계정만
+      if (!adminUnlocked) { setCodeGate({ target: id }); return }  // 코드 게이트
+    }
+    setPage(id)
+  }
+
   const pendingCount = candidates.filter(c => c.status === 'candidate').length
 
   return (
@@ -92,6 +102,7 @@ export default function App() {
           {page === 'params'     && <ParamsPage />}
           {page === 'members'    && <Members />}
           {page === 'orgparts'   && <OrgParts />}
+          {page === 'audit'      && <AuditPage />}
         </main>
       </div>
 

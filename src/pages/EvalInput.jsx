@@ -208,10 +208,10 @@ export default function EvalInput() {
           <div>
             <div className="info-label">총 경력</div>
             <div className="career-input-wrap">
-              <input className="career-input" type="number" min="0" max="50"
+              <input className="career-input" type="number" min="0" max="50" inputMode="numeric"
                 value={careerYears} onChange={e => setCareerYears(e.target.value)} placeholder="0" />
               <span className="career-unit">년</span>
-              <input className="career-input" type="number" min="0" max="11"
+              <input className="career-input" type="number" min="0" max="11" inputMode="numeric"
                 value={careerMonths} onChange={e => setCareerMonths(e.target.value)} placeholder="0" />
               <span className="career-unit">개월</span>
             </div>
@@ -220,7 +220,7 @@ export default function EvalInput() {
           <div>
             <div className="info-label">기존 연봉 <span style={{ fontWeight: 400, color: '#94a3b8' }}>(선택)</span></div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <input className="info-input" type="number" min="0" step="100"
+              <input className="info-input" type="number" min="0" step="100" inputMode="numeric"
                 value={prevSalary} onChange={e => setPrevSalary(e.target.value)}
                 placeholder="예) 3200" style={{ maxWidth: 160 }} />
               <span style={{ fontSize: 14, color: '#64748b' }}>만원</span>

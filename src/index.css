@@ -12,20 +12,29 @@ body {
   -webkit-font-smoothing: antialiased;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  /* PWA·모바일: 당겨서 새로고침으로 입력 중 데이터가 유실되지 않게 */
+  overscroll-behavior-y: contain;
 }
 
 #root { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
 
 /* ── LAYOUT ──────────────────────────────── */
 .app-wrap { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
-.layout { display: flex; flex: 1; min-height: calc(100vh - 56px); min-height: calc(100dvh - 56px); }
+.layout {
+  display: flex; flex: 1;
+  min-height: calc(100vh - 56px);
+  min-height: calc(100dvh - 56px - env(safe-area-inset-top, 0px));
+}
 .main-content { flex: 1; padding: 28px 32px; overflow-y: auto; min-width: 0; }
 
 /* ── HEADER ──────────────────────────────── */
 .header {
-  height: 56px;
+  /* 노치 iPhone(PWA standalone)에서 상태바에 겹치지 않게 safe-area만큼 확장 */
+  height: calc(56px + env(safe-area-inset-top, 0px));
+  padding: 0 24px;
+  padding-top: env(safe-area-inset-top, 0px);
   background: linear-gradient(90deg, #0b8a7c, #0d9488);
-  display: flex; align-items: center; padding: 0 24px; gap: 16px;
+  display: flex; align-items: center; gap: 16px;
   box-shadow: 0 2px 6px rgba(0,0,0,0.15);
   flex-shrink: 0; position: sticky; top: 0; z-index: 100;
 }
@@ -38,7 +47,6 @@ body {
   border-radius: 6px; color: #fff; font-size: 12px; font-family: inherit;
   background: transparent; cursor: pointer; transition: all 0.15s;
 }
-.btn-admin-login:hover { background: rgba(255,255,255,0.15); }
 
 /* ── SIDEBAR ─────────────────────────────── */
 .sidebar {
@@ -57,9 +65,7 @@ body {
   text-decoration: none; background: transparent; border: none;
   width: 100%; text-align: left; font-family: inherit;
 }
-.nav-item:hover  { background: #f0fdfa; color: #0d9488; }
 .nav-item.active { background: #e6faf7; color: #0b7a70; font-weight: 500; }
-.nav-item.admin-item:hover  { background: #fdf4ff; color: #7c3aed; }
 .nav-item.admin-item.active { background: #f3e8ff; color: #6d28d9; font-weight: 500; }
 .nav-icon { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; }
 .nav-badge {
@@ -132,7 +138,6 @@ body {
   display: flex; align-items: center; gap: 10px; padding: 10px 14px;
   border: 1.5px solid #e2e8f0; border-radius: 8px; cursor: pointer; transition: all 0.15s;
 }
-.radio-option:hover   { border-color: #99e6d9; background: #f0fdfa; }
 .radio-option.selected{ border-color: #0d9488; background: #e6faf7; }
 .radio-dot {
   width: 16px; height: 16px; border-radius: 50%; border: 2px solid #cbd5e0;
@@ -150,7 +155,6 @@ body {
   padding: 2px 7px; border-radius: 10px; flex-shrink: 0; white-space: nowrap;
 }
 .radio-option.selected .radio-score { background: #c6f6ee; color: #0b7a70; }
-.radio-option.deduction:hover   { border-color: #fca5a5; background: #fff5f5; }
 .radio-option.deduction.selected{ border-color: #ef4444; background: #fff5f5; }
 .radio-option.deduction.selected .radio-dot { border-color: #ef4444; background: #ef4444; }
 .radio-option.deduction.selected .radio-text { color: #9b1c1c; }
@@ -169,33 +173,30 @@ body {
   color: #fff; border: none; border-radius: 10px;
   font-size: 16px; font-weight: 600; font-family: inherit; cursor: pointer; transition: all 0.15s;
 }
-.btn-calc:hover  { box-shadow: 0 4px 12px rgba(13,148,136,0.3); }
 .btn-calc:active { transform: scale(0.99); }
 .btn-primary {
   padding: 10px 24px; background: linear-gradient(135deg, #0d9488, #0b8070);
   color: #fff; border: none; border-radius: 8px;
   font-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer; transition: all 0.15s;
 }
-.btn-primary:hover { box-shadow: 0 4px 12px rgba(13,148,136,0.3); }
 .btn-secondary {
   padding: 10px 24px; background: #fff; border: 1.5px solid #e2e8f0;
   border-radius: 8px; font-size: 14px; color: #64748b;
   font-family: inherit; cursor: pointer; transition: all 0.15s;
 }
-.btn-secondary:hover { background: #f8fafc; border-color: #94a3b8; }
 .btn-danger {
   padding: 8px 16px; background: #fff; border: 1px solid #fecaca;
   border-radius: 8px; font-size: 13px; color: #ef4444;
   font-family: inherit; cursor: pointer; transition: all 0.15s;
 }
-.btn-danger:hover { background: #fef2f2; border-color: #ef4444; }
 .btn-icon {
   padding: 8px 16px; background: #fff; border: 1px solid #e2e8f0;
   border-radius: 8px; font-size: 13px; color: #64748b;
   font-family: inherit; cursor: pointer; transition: all 0.15s;
   display: inline-flex; align-items: center; gap: 6px;
 }
-.btn-icon:hover { background: #f8fafc; }
+/* 표 안에 들어가는 작은 액션 버튼 — 크기는 여기서만 관리 (모바일에서 확대) */
+.btn-xs { padding: 4px 10px; font-size: 12px; border-radius: 6px; cursor: pointer; font-family: inherit; }
 .eval-actions { display: flex; gap: 12px; align-items: center; }
 .eval-actions .btn-calc { flex: 1; }
 
@@ -208,7 +209,6 @@ body {
 }
 .data-table td { padding: 12px 14px; border-bottom: 1px solid #f1f5f9; font-size: 13px; color: #374151; }
 .data-table tr:last-child td { border-bottom: none; }
-.data-table tbody tr:hover td { background: #fafafa; }
 .table-empty { text-align: center; padding: 48px 24px; color: #94a3b8; font-size: 14px; line-height: 2; }
 
 /* ── MODAL ───────────────────────────────── */
@@ -225,20 +225,102 @@ body {
 .modal-desc  { font-size: 13px; color: #64748b; margin-bottom: 24px; }
 .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
 
+/* ── 정렬·필터 메뉴 (데스크톱 팝업 + 모바일 바텀시트 공용) ── */
+.fmenu-sort {
+  display: block; width: 100%; text-align: left;
+  background: transparent; border: none; cursor: pointer;
+  padding: 7px 8px; border-radius: 6px; font-size: 13px;
+  color: #374151; font-family: inherit;
+}
+.fmenu-sort.active { background: #f5f3ff; color: #6d28d9; }
+.fmenu-divider { border-top: 1px solid #f1f5f9; margin: 6px 0; }
+.fmenu-search {
+  width: 100%; height: 32px; border: 1px solid #cbd5e1; border-radius: 6px;
+  padding: 0 8px; font-size: 12px; margin-bottom: 6px; font-family: inherit; outline: none;
+}
+.fmenu-links { display: flex; justify-content: space-between; padding: 0 2px 4px; }
+.fmenu-link {
+  background: none; border: none; cursor: pointer; color: #7c3aed;
+  font-size: 11px; font-family: inherit; padding: 2px; font-weight: 600;
+}
+.fmenu-list { overflow-y: auto; max-height: 220px; }
+.fmenu-empty { font-size: 12px; color: #94a3b8; padding: 6px; }
+.fmenu-opt { display: flex; align-items: center; gap: 8px; padding: 4px; font-size: 12px; cursor: pointer; }
+.fmenu-opt input { accent-color: #7c3aed; flex-shrink: 0; }
+.fmenu-opt span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── 바텀시트 (모바일 공용) ───────────────── */
+.sheet-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1000; }
+.bottom-sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 1001;
+  background: #fff; border-radius: 16px 16px 0 0;
+  padding: 12px 16px calc(14px + env(safe-area-inset-bottom, 8px));
+  max-height: 78dvh; display: flex; flex-direction: column;
+  box-shadow: 0 -8px 30px rgba(0,0,0,0.18);
+}
+.sheet-handle {
+  width: 40px; height: 4px; border-radius: 2px; background: #e2e8f0;
+  margin: 0 auto 12px; flex-shrink: 0;
+}
+.sheet-title { font-size: 15px; font-weight: 700; color: #1a202c; margin-bottom: 10px; flex-shrink: 0; }
+.sheet-scroll { overflow-y: auto; min-height: 0; }
+.sheet-item {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  min-height: 48px; padding: 12px; border: none; background: none;
+  border-radius: 10px; font-size: 15px; color: #374151;
+  font-family: inherit; cursor: pointer; text-align: left;
+}
+.sheet-item.active { background: #f3e8ff; color: #6d28d9; font-weight: 600; }
+
+/* ── 모바일 정렬·필터 칩 바 (데스크톱 숨김) ── */
+.mgrid-bar { display: none; }
+
+/* ── 평가 결과: 항목별 점수 행 ─────────────── */
+.detail-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.detail-name { font-size: 13px; color: #374151; width: 150px; flex-shrink: 0; }
+.detail-track { flex: 1; height: 8px; background: #f1f5f9; border-radius: 4px; overflow: hidden; }
+.detail-sel { font-size: 12px; color: #64748b; width: 120px; flex-shrink: 0; }
+.detail-score { font-size: 13px; font-weight: 600; width: 40px; text-align: right; flex-shrink: 0; }
+
+/* ── 차트 컨테이너 (모바일에서 높이 확보) ──── */
+.chart-box { position: relative; height: 400px; }
+
+/* ── HOVER — 터치 기기에서는 잔상이 남지 않게 hover 지원 기기에만 적용 ── */
+@media (hover: hover) {
+  .btn-admin-login:hover { background: rgba(255,255,255,0.15); }
+  .nav-item:hover  { background: #f0fdfa; color: #0d9488; }
+  .nav-item.admin-item:hover  { background: #fdf4ff; color: #7c3aed; }
+  .radio-option:hover   { border-color: #99e6d9; background: #f0fdfa; }
+  .radio-option.deduction:hover   { border-color: #fca5a5; background: #fff5f5; }
+  .btn-calc:hover  { box-shadow: 0 4px 12px rgba(13,148,136,0.3); }
+  .btn-primary:hover { box-shadow: 0 4px 12px rgba(13,148,136,0.3); }
+  .btn-secondary:hover { background: #f8fafc; border-color: #94a3b8; }
+  .btn-danger:hover { background: #fef2f2; border-color: #ef4444; }
+  .btn-icon:hover { background: #f8fafc; }
+  .data-table tbody tr:hover td { background: #fafafa; }
+  .sheet-item:hover { background: #f8fafc; }
+}
+
 /* ── SCROLLBAR ───────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #cbd5e0; border-radius: 3px; }
 
-/* ── MOBILE NAV ──────────────────────────── */
+/* ── TABLET (좁은 데스크톱·아이패드 세로) ──── */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .sidebar { width: 172px; }
+  .main-content { padding: 22px 20px; }
+}
+
+/* ── MOBILE ──────────────────────────────── */
 @media (max-width: 768px) {
   .sidebar { display: none; }
   .main-content { padding: 20px 16px; }
   .info-grid { grid-template-columns: 1fr; }
-  .layout { padding-bottom: 64px; }
+  .layout { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
 
   /* 헤더 — 좁은 화면에서 넘침 방지 */
-  .header { padding: 0 14px; gap: 8px; }
+  .header { padding-left: 14px; padding-right: 14px; gap: 8px; }
   .header-logo { font-size: 16px; }
   .header-sub { display: none; }
   .header-right { gap: 8px; min-width: 0; }
@@ -252,8 +334,68 @@ body {
   input, select, textarea, .info-input, .career-input { font-size: 16px !important; }
 
   .page-title { font-size: 18px; }
-  .modal-box { padding: 24px; border-radius: 14px; }
+  .card { padding: 18px 16px; }
+  .modal-box { padding: 24px 20px; border-radius: 14px; }
+  .modal-actions button { flex: 1; min-height: 46px; }
 
+  /* ── 데이터 테이블 → 카드형 스택 전환 ──
+     각 셀은 data-label 속성의 라벨 + 값 한 줄로,
+     .row-title 은 카드 제목, .row-actions 는 큰 터치 버튼 행 */
+  .data-table thead { display: none; }
+  .data-table, .data-table tbody, .data-table tr, .data-table td { display: block; width: 100%; }
+  .data-table tr { padding: 6px 0 10px; border-bottom: 6px solid #f0f2f5; }
+  .data-table tr:last-child { border-bottom: none; }
+  .data-table td {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end;
+    gap: 6px 12px; padding: 7px 16px; border-bottom: none; text-align: right;
+  }
+  .data-table td[data-label]::before {
+    content: attr(data-label);
+    font-size: 12px; color: #94a3b8; font-weight: 500;
+    margin-right: auto; flex-shrink: 0; text-align: left;
+  }
+  .data-table td:empty { display: none; }
+  .data-table td.row-title {
+    justify-content: flex-start; text-align: left;
+    font-size: 15px; padding-top: 12px;
+  }
+  .data-table td.row-actions { padding-top: 10px; }
+  .data-table td.row-actions > div { flex: 1; display: flex; gap: 8px; }
+  .data-table td.row-actions button { flex: 1; min-height: 42px; font-size: 13px; }
+
+  /* 모바일 정렬·필터 칩 바 */
+  .mgrid-bar {
+    display: flex; gap: 6px; overflow-x: auto;
+    padding: 2px 2px 10px; -webkit-overflow-scrolling: touch;
+  }
+  .mgrid-bar::-webkit-scrollbar { display: none; }
+  .mgrid-chip {
+    flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px;
+    min-height: 36px; padding: 6px 12px; border-radius: 18px;
+    border: 1px solid #e2e8f0; background: #fff; color: #64748b;
+    font-size: 12px; font-family: inherit; cursor: pointer; white-space: nowrap;
+  }
+  .mgrid-chip.active { border-color: #7c3aed; background: #f5f3ff; color: #6d28d9; font-weight: 600; }
+  .mgrid-chip.clear { border-color: #fecaca; color: #dc2626; }
+
+  /* 바텀시트 안의 필터 메뉴 — 터치 크기로 확대 */
+  .bottom-sheet .fmenu-sort { padding: 12px 10px; font-size: 15px; }
+  .bottom-sheet .fmenu-search { height: 42px; font-size: 16px; padding: 0 12px; }
+  .bottom-sheet .fmenu-list { max-height: none; }
+  .bottom-sheet .fmenu-link { font-size: 13px; padding: 8px 6px; }
+  .bottom-sheet .fmenu-opt { padding: 10px 6px; font-size: 14px; }
+  .bottom-sheet .fmenu-opt input { width: 18px; height: 18px; }
+
+  /* 평가 결과: 항목별 점수 행 → 2줄 스택 (라벨+점수 / 바 / 선택지) */
+  .detail-row { flex-wrap: wrap; row-gap: 6px; margin-bottom: 14px; }
+  .detail-name { order: 1; width: auto; flex: 1 1 auto; }
+  .detail-score { order: 2; }
+  .detail-track { order: 3; flex-basis: 100%; }
+  .detail-sel { order: 4; width: 100%; text-align: left; }
+
+  .chart-box { height: 300px; }
+
+  /* 하단 탭 바 */
   .mobile-nav {
     position: fixed; bottom: 0; left: 0; right: 0;
     background: #fff; border-top: 1px solid #e2e8f0;
@@ -261,11 +403,19 @@ body {
     padding-bottom: env(safe-area-inset-bottom, 8px);
   }
   .mobile-nav-item {
-    flex: 1; display: flex; flex-direction: column; align-items: center;
-    gap: 2px; padding: 8px 4px; font-size: 10px; color: #94a3b8;
+    flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center;
+    gap: 3px; padding: 8px 2px 6px; font-size: 11px; color: #94a3b8;
     cursor: pointer; border: none; background: none; font-family: inherit;
+    white-space: nowrap;
   }
   .mobile-nav-item.active { color: #0d9488; }
-  .mobile-nav-icon { font-size: 20px; line-height: 1; }
+  .mobile-nav-icon { font-size: 20px; line-height: 1; position: relative; }
+  .mobile-nav-badge {
+    position: absolute; top: -4px; right: -12px;
+    background: #0d9488; color: #fff;
+    font-size: 10px; font-weight: 700; line-height: 16px;
+    min-width: 16px; height: 16px; border-radius: 8px;
+    padding: 0 4px; text-align: center;
+  }
 }
 @media (min-width: 769px) { .mobile-nav { display: none; } }

@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { db, auth, firebaseConfig } from '../firebase'
-import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore'
+import { collection, onSnapshot, doc, setDoc, updateDoc } from 'firebase/firestore'
 import { initializeApp, deleteApp } from 'firebase/app'
 import { getAuth, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail } from 'firebase/auth'
+import { logAudit, moveToTrash } from '../utils/audit'
+import { useConfirm } from '../components/ConfirmDialog'
 
 // 보조 Firebase 앱으로 계정을 만들어, 현재 관리자 로그인 세션이 풀리지 않게 함
 async function createAuthAccount(email, pw) {
@@ -21,6 +23,7 @@ async function createAuthAccount(email, pw) {
 const EMPTY = { email: '', name: '', part: '', isAdmin: false, pw: '' }
 
 export default function Members() {
+  const [ask, confirmEl]      = useConfirm()
   const [members, setMembers] = useState([])
   const [parts, setParts]     = useState([])
   const [form, setForm]       = useState(EMPTY)
@@ -60,6 +63,8 @@ export default function Members() {
         isAdmin: !!form.isAdmin,
         createdAt: new Date().toISOString(),
       })
+      logAudit('사용자 등록', { type: 'users', id: email, name: form.name.trim() || email },
+        form.isAdmin ? '관리자 권한' : `파트 ${form.part}`)
       setForm(EMPTY)
       setMsg({ ok: true, text: '등록되었습니다.' + note })
     } catch (e) {
@@ -86,19 +91,29 @@ export default function Members() {
     }
   }
 
-  const changePart  = (m, part) => updateDoc(doc(db, 'users', m.id), { part })
-  const toggleAdmin = (m) => updateDoc(doc(db, 'users', m.id), { isAdmin: !m.isAdmin, part: !m.isAdmin ? null : m.part })
+  const changePart  = async (m, part) => {
+    await updateDoc(doc(db, 'users', m.id), { part })
+    logAudit('사용자 파트 변경', { type: 'users', id: m.id, name: m.name }, `${m.part || '미배정'} → ${part || '미배정'}`)
+  }
+  const toggleAdmin = async (m) => {
+    await updateDoc(doc(db, 'users', m.id), { isAdmin: !m.isAdmin, part: !m.isAdmin ? null : m.part })
+    logAudit('관리자 권한 변경', { type: 'users', id: m.id, name: m.name }, m.isAdmin ? '관리자 해제' : '관리자 부여')
+  }
 
   // 인증 계정 삭제는 보안상 클라이언트에서 불가 → Firestore 명단만 제거하고 콘솔 링크 안내
   const CONSOLE_AUTH_URL = `https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/users`
   const remove = async (m) => {
-    const ok = confirm(
-      `${m.email} 사용자를 삭제할까요?\n\n` +
-      `• 앱 명단(권한)에서 즉시 제거되어 포털 접근이 차단됩니다.\n` +
-      `• 로그인 계정 자체는 보안상 사이트에서 지울 수 없어, Firebase 콘솔에서 별도로 삭제해야 완전히 제거됩니다.`
-    )
+    const ok = await ask({
+      title: '사용자 삭제',
+      message: `${m.email} 사용자를 삭제할까요?\n\n` +
+        `• 앱 명단(권한)에서 즉시 제거되어 포털 접근이 차단됩니다. (감사 로그·휴지통에서 복원 가능)\n` +
+        `• 로그인 계정 자체는 보안상 사이트에서 지울 수 없어, Firebase 콘솔에서 별도로 삭제해야 완전히 제거됩니다.`,
+      danger: true, confirmLabel: '삭제',
+    })
     if (!ok) return
-    await deleteDoc(doc(db, 'users', m.id))
+    const data = { ...m }; delete data.id   // 문서 필드만 휴지통에 보관 (id는 docId로 따로)
+    await moveToTrash('users', m.id, data, m.name || m.email)
+    logAudit('사용자 삭제', { type: 'users', id: m.id, name: m.name }, m.isAdmin ? '관리자 계정' : `파트 ${m.part || '미배정'}`)
     window.scrollTo({ top: 0, behavior: 'smooth' })
     setMsg({
       ok: true,
@@ -193,34 +208,35 @@ export default function Members() {
               <tbody>
                 {members.map(m => (
                   <tr key={m.id}>
-                    <td style={{ fontWeight: 600 }}>{m.email}</td>
-                    <td>{m.name}</td>
-                    <td>
+                    <td className="row-title" style={{ fontWeight: 600 }}>{m.email}</td>
+                    <td data-label="이름">{m.name}</td>
+                    <td data-label="파트">
                       {m.isAdmin ? (
                         <span style={{ fontSize: 12, color: '#94a3b8' }}>전체</span>
                       ) : (
-                        <select className="info-input" value={m.part || ''} style={{ padding: '4px 8px', fontSize: 13 }}
+                        <select className="info-input" value={m.part || ''} style={{ padding: '4px 8px', fontSize: 13, width: 'auto', height: 'auto' }}
                           onChange={e => changePart(m, e.target.value)}>
                           <option value="">미배정</option>
                           {parts.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
                         </select>
                       )}
                     </td>
-                    <td>
-                      <button onClick={() => toggleAdmin(m)} style={{
-                        padding: '3px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                    <td data-label="관리자">
+                      <button onClick={() => toggleAdmin(m)} className="btn-xs" style={{
+                        borderRadius: 8, fontWeight: 600,
                         border: '1px solid', borderColor: m.isAdmin ? '#0d9488' : '#e2e8f0',
                         background: m.isAdmin ? '#e6faf7' : '#fff', color: m.isAdmin ? '#0b7a70' : '#64748b',
                       }}>
                         {m.isAdmin ? '관리자' : '일반'}
                       </button>
                     </td>
-                    <td>
+                    <td className="row-actions">
                       <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                         <button
+                          className="btn-xs"
                           style={{
-                            padding: '4px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                            border: '1px solid #cbd5e1', background: '#fff', color: '#475569', fontFamily: 'inherit',
+                            borderRadius: 8, fontWeight: 600,
+                            border: '1px solid #cbd5e1', background: '#fff', color: '#475569',
                           }}
                           disabled={busy}
                           onClick={() => sendReset(m)}
@@ -228,7 +244,7 @@ export default function Members() {
                         >
                           비밀번호 재설정 메일
                         </button>
-                        <button className="btn-danger" style={{ padding: '4px 10px', fontSize: 12 }}
+                        <button className="btn-danger btn-xs"
                           onClick={() => remove(m)}>삭제</button>
                       </div>
                     </td>
@@ -239,6 +255,8 @@ export default function Members() {
           </div>
         )}
       </div>
+
+      {confirmEl}
     </div>
   )
 }

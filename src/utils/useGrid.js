@@ -3,6 +3,9 @@ import { useState, useMemo } from 'react'
 // 엑셀식 정렬+필터 상태 관리 훅
 // column 정의: { key, label, get:(item)=>정렬·필터 기준값, text?:(item)=>표시·체크리스트 문자열, align? }
 
+// 작성 시각(ms) — 신규 문서는 createdAt(ISO), 과거 문서는 id가 Date.now() 값이라 그대로 폴백
+export const createdTs = x => (x.createdAt ? Date.parse(x.createdAt) : (Number(x.id) || 0))
+
 // 숫자가 섞인 값은 숫자 우선, 그 외는 한글 로케일 정렬 (체크리스트 정렬용)
 export function smartCompare(a, b) {
   const sa = String(a ?? ''), sb = String(b ?? '')
