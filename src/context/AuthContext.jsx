@@ -61,7 +61,7 @@ export function AuthProvider({ children }) {
 
   const isAdmin   = !!profile?.isAdmin   // 관리자 표시된 계정만
   const part      = profile?.part ?? null
-  const hasAccess = !!profile            // 명단(users)에 있거나 부트스트랩 관리자라야 포털 진입
+  const hasAccess = !!profile            // 명단(users)에 있거나 부트스트랩 관리자라야 PJT채용관리 진입
 
   return (
     <AuthContext.Provider value={{ user, profile, isAdmin, part, hasAccess, login, logout, loading }}>

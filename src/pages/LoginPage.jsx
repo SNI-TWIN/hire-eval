@@ -28,7 +28,7 @@ export default function LoginPage() {
     }}>
       <div className="card" style={{ width: '100%', maxWidth: 400, padding: 32 }}>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <div style={{ fontSize: 22, fontWeight: 700, color: '#1a202c', letterSpacing: '-0.3px' }}>인사관리 포털</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#1a202c', letterSpacing: '-0.3px' }}>PJT채용관리</div>
           <div style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>로그인 후 이용할 수 있습니다.</div>
         </div>
         <form onSubmit={handle}>

@@ -106,7 +106,7 @@ export default function Members() {
     const ok = await ask({
       title: '사용자 삭제',
       message: `${m.email} 사용자를 삭제할까요?\n\n` +
-        `• 앱 명단(권한)에서 즉시 제거되어 포털 접근이 차단됩니다. (감사 로그·휴지통에서 복원 가능)\n` +
+        `• 앱 명단(권한)에서 즉시 제거되어 PJT채용관리 접근이 차단됩니다. (감사 로그·휴지통에서 복원 가능)\n` +
         `• 로그인 계정 자체는 보안상 사이트에서 지울 수 없어, Firebase 콘솔에서 별도로 삭제해야 완전히 제거됩니다.`,
       danger: true, confirmLabel: '삭제',
     })

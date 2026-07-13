@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icons/*.png'],
       manifest: {
-        name: '인사관리 포털',
-        short_name: '인사포털',
+        name: 'PJT채용관리',
+        short_name: 'PJT채용관리',
         description: '채용 평가 및 인사 관리 시스템',
         theme_color: '#0d9488',
         background_color: '#f0f2f5',

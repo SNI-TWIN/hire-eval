@@ -8,7 +8,7 @@ export default function Header({ onChangeCode, adminUnlocked }) {
   return (
     <>
       <header className="header">
-        <div className="header-logo">인사관리 포털</div>
+        <div className="header-logo">PJT채용관리</div>
         <div className="header-sub">채용 평가 시스템</div>
         <div className="header-right">
           {isAdmin && (
